@@ -1,8 +1,9 @@
 --[[
-	RainbowBannerUI · 灵动岛版 + 导航栏 + 战斗/ESP
-	· 自写滑动条（不依赖 WindUI）
-	· 修复收起/展开后导航与内容丢失
-	· 杀戮光环（多目标）+ ESP（参考 PYHUB 绕过）
+	RainbowBannerUI · 灵动岛 + 导航栏 + 战斗/ESP
+	· Toggle 是真正的开关样式（胶囊+圆点）
+	· Slider 仅用于数值，独立滑轨+拖钮
+	· Section 分组标题
+	· 收起/展开用 Visible 开关，不碰透明度
 --]]
 
 local Players           = game:GetService("Players")
@@ -14,18 +15,28 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local pg = LocalPlayer:WaitForChild("PlayerGui")
 
--- ============ 清理旧实例 ============
 local OLD_NAME = "RainbowBannerUI"
 local old = pg:FindFirstChild(OLD_NAME)
 if old then old:Destroy() end
 if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
 
--- ============ 远程（绕过核心）============
 local RemoteFolder = ReplicatedStorage:WaitForChild("Remote", 30)
 local PlayerEvent  = RemoteFolder and RemoteFolder:WaitForChild("PlayerEvent", 30)
 local PlayerFunc   = RemoteFolder and RemoteFolder:WaitForChild("PlayerFunc", 30)
 
 -- ============ 配色 ============
+local C_BG         = Color3.fromRGB(18, 18, 24)
+local C_NAV        = Color3.fromRGB(24, 24, 32)
+local C_CARD       = Color3.fromRGB(30, 30, 40)
+local C_ITEM       = Color3.fromRGB(34, 34, 44)
+local C_ITEM_HOVER = Color3.fromRGB(46, 46, 60)
+local C_ITEM_ACT   = Color3.fromRGB(58, 58, 78)
+local C_TXT        = Color3.fromRGB(232, 232, 240)
+local C_TXT_DIM    = Color3.fromRGB(150, 150, 165)
+local C_STROKE     = Color3.fromRGB(255, 255, 255)
+local C_ACCENT     = Color3.fromRGB(90, 160, 255)
+local C_SWITCH_OFF = Color3.fromRGB(60, 60, 72)
+
 local function buildGradient(hueShift, sat, val)
 	local stops = {0.00, 0.45, 0.75, 1.00}
 	local baseH = {0.50, 0.70, 0.90, 0.12}
@@ -57,24 +68,13 @@ gui.DisplayOrder = 999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = pg
 
--- ============ 尺寸常量 ============
 local EXPAND_POS  = UDim2.fromScale(0.5, 0.5)
-local EXPAND_SIZE = UDim2.fromScale(0.56, 0.68)
+local EXPAND_SIZE = UDim2.fromScale(0.58, 0.70)
 local ISLAND_POS  = UDim2.fromScale(0.5, 0.07)
 local ISLAND_SIZE = UDim2.new(0, 130, 0, 32)
-local MIN_SIZE = Vector2.new(300, 200)
+local MIN_SIZE = Vector2.new(320, 220)
 local MAX_SIZE = Vector2.new(1000, 820)
 local NAV_W = 0.24
-
-local C_BG         = Color3.fromRGB(18, 18, 24)
-local C_NAV        = Color3.fromRGB(24, 24, 32)
-local C_ITEM       = Color3.fromRGB(34, 34, 44)
-local C_ITEM_HOVER = Color3.fromRGB(46, 46, 60)
-local C_ITEM_ACT   = Color3.fromRGB(58, 58, 78)
-local C_TXT        = Color3.fromRGB(232, 232, 240)
-local C_TXT_DIM    = Color3.fromRGB(150, 150, 165)
-local C_STROKE     = Color3.fromRGB(255, 255, 255)
-local C_ACCENT     = Color3.fromRGB(90, 160, 255)
 
 -- ============ 主面板 ============
 local panel = Instance.new("Frame")
@@ -93,12 +93,11 @@ local panelCorner = Instance.new("UICorner"); panelCorner.CornerRadius = UDim.ne
 local panelStroke = Instance.new("UIStroke"); panelStroke.Thickness = 1; panelStroke.Transparency = 0.25; panelStroke.Color = C_STROKE; panelStroke.Parent = panel
 local panelGrad = Instance.new("UIGradient"); panelGrad.Color = buildGradient(0, 0.9, 1); panelGrad.Rotation = 8; panelGrad.Parent = panelStroke
 
--- ============ 左侧导航栏 ============
+-- ============ 左侧导航 ============
 local nav = Instance.new("Frame")
 nav.Name = "Nav"; nav.Position = UDim2.fromScale(0, 0); nav.Size = UDim2.fromScale(NAV_W, 1)
 nav.BackgroundColor3 = C_NAV; nav.BackgroundTransparency = 0.35; nav.BorderSizePixel = 0; nav.ZIndex = 3
 nav.Parent = panel
-
 local navCorner = Instance.new("UICorner"); navCorner.CornerRadius = UDim.new(0, 18); navCorner.Parent = nav
 
 local navDivider = Instance.new("Frame")
@@ -129,14 +128,14 @@ content.Position = UDim2.fromScale(NAV_W, 0); content.Size = UDim2.fromScale(1 -
 content.BackgroundTransparency = 1; content.ZIndex = 2; content.Parent = panel
 
 local contentTitle = Instance.new("TextLabel")
-contentTitle.Position = UDim2.fromScale(0.05, 0.05); contentTitle.Size = UDim2.fromScale(0.9, 0.07)
+contentTitle.Position = UDim2.fromScale(0.05, 0.04); contentTitle.Size = UDim2.fromScale(0.9, 0.06)
 contentTitle.BackgroundTransparency = 1; contentTitle.Font = Enum.Font.GothamBold
 contentTitle.Text = "公告"; contentTitle.TextSize = 18; contentTitle.TextColor3 = C_TXT
 contentTitle.TextTransparency = 0.05; contentTitle.TextXAlignment = Enum.TextXAlignment.Left
 contentTitle.ZIndex = 3; contentTitle.Parent = content
 
 local infoScroll = Instance.new("ScrollingFrame")
-infoScroll.Position = UDim2.fromScale(0.05, 0.15); infoScroll.Size = UDim2.fromScale(0.9, 0.78)
+infoScroll.Position = UDim2.fromScale(0.04, 0.12); infoScroll.Size = UDim2.fromScale(0.92, 0.82)
 infoScroll.BackgroundTransparency = 1; infoScroll.BorderSizePixel = 0
 infoScroll.ScrollBarThickness = 3; infoScroll.ScrollBarImageColor3 = Color3.fromRGB(120, 120, 140)
 infoScroll.CanvasSize = UDim2.new(0, 0, 0, 0); infoScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -145,153 +144,370 @@ infoScroll.ZIndex = 3; infoScroll.Parent = content
 local infoLayout = Instance.new("UIListLayout")
 infoLayout.FillDirection = Enum.FillDirection.Vertical
 infoLayout.SortOrder = Enum.SortOrder.LayoutOrder
-infoLayout.Padding = UDim.new(0, 8); infoLayout.Parent = infoScroll
+infoLayout.Padding = UDim.new(0, 6); infoLayout.Parent = infoScroll
 
 local infoPad = Instance.new("UIPadding")
-infoPad.PaddingRight = UDim.new(0, 6); infoPad.PaddingBottom = UDim.new(0, 6); infoPad.Parent = infoScroll
+infoPad.PaddingRight = UDim.new(0, 6); infoPad.PaddingBottom = UDim.new(0, 10); infoPad.Parent = infoScroll
 
--- ============ 基础按钮 & 滑动条组件 ============
+-- ==========================================================
+--                    ★ 控件工厂
+-- ==========================================================
 
-local function addHover(btn, baseColor)
+-- 分组标题
+local function makeSection(title, order)
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, 0, 0, 22)
+	lbl.BackgroundTransparency = 1
+	lbl.Font = Enum.Font.GothamBold
+	lbl.Text = title
+	lbl.TextSize = 11
+	lbl.TextColor3 = C_TXT_DIM
+	lbl.TextTransparency = 0.15
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.LayoutOrder = order
+	lbl.ZIndex = 6
+	lbl.Parent = infoScroll
+	local p = Instance.new("UIPadding"); p.PaddingLeft = UDim.new(0, 4); p.PaddingTop = UDim.new(0, 8); p.Parent = lbl
+	return lbl
+end
+
+-- 信息卡片（公告用，不可点击感）
+local function makeInfoCard(text, order, highlight)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, highlight and 40 or 32)
+	card.BackgroundColor3 = highlight and C_ITEM_ACT or C_CARD
+	card.BackgroundTransparency = highlight and 0.2 or 0.45
+	card.BorderSizePixel = 0
+	card.LayoutOrder = order
+	card.ZIndex = 6
+	card.Parent = infoScroll
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = card
+	local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = highlight and 0.5 or 0.85; s.Color = C_STROKE; s.Parent = card
+
+	local lbl = Instance.new("TextLabel")
+	lbl.BackgroundTransparency = 1
+	lbl.Size = UDim2.new(1, -20, 1, 0)
+	lbl.Position = UDim2.new(0, 12, 0, 0)
+	lbl.Font = highlight and Enum.Font.GothamBold or Enum.Font.Gotham
+	lbl.Text = text
+	lbl.TextSize = highlight and 15 or 13
+	lbl.TextColor3 = highlight and C_TXT or C_TXT_DIM
+	lbl.TextTransparency = highlight and 0.05 or 0.15
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.ZIndex = 7
+	lbl.Parent = card
+	return card
+end
+
+-- 普通按钮
+local function makeButton(text, order, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, 0, 0, 36)
+	btn.BackgroundColor3 = C_ITEM
+	btn.BackgroundTransparency = 0.4
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.Font = Enum.Font.GothamMedium
+	btn.Text = text
+	btn.TextSize = 13
+	btn.TextColor3 = C_TXT
+	btn.TextTransparency = 0.1
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	btn.LayoutOrder = order
+	btn.ZIndex = 6
+	btn.Parent = infoScroll
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
+	local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
+	local p = Instance.new("UIPadding"); p.PaddingLeft = UDim.new(0, 12); p.Parent = btn
 	btn.MouseEnter:Connect(function()
 		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM_HOVER, BackgroundTransparency = 0.25 }):Play()
 	end)
 	btn.MouseLeave:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = baseColor or C_ITEM, BackgroundTransparency = 0.4 }):Play()
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4 }):Play()
 	end)
-end
-
-local function makeRow(text, order, onClick)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, 36)
-	btn.BackgroundColor3 = C_ITEM; btn.BackgroundTransparency = 0.4
-	btn.BorderSizePixel = 0; btn.AutoButtonColor = false
-	btn.Font = Enum.Font.GothamMedium; btn.Text = "  " .. text
-	btn.TextSize = 14; btn.TextColor3 = C_TXT; btn.TextTransparency = 0.1
-	btn.TextXAlignment = Enum.TextXAlignment.Left; btn.LayoutOrder = order
-	btn.ZIndex = 6; btn.Parent = infoScroll
-	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
-	local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
-	addHover(btn)
 	if onClick then btn.MouseButton1Click:Connect(onClick) end
 	return btn
 end
 
+-- ★ 真正的 Toggle 开关
 local function makeToggle(text, order, default, onChanged)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, 36)
-	btn.BackgroundColor3 = default and C_ITEM_ACT or C_ITEM
-	btn.BackgroundTransparency = default and 0.15 or 0.4
-	btn.BorderSizePixel = 0; btn.AutoButtonColor = false
-	btn.Font = Enum.Font.GothamMedium
-	btn.Text = "  " .. text .. "    [" .. (default and "开" or "关") .. "]"
-	btn.TextSize = 14; btn.TextColor3 = C_TXT; btn.TextTransparency = 0.1
-	btn.TextXAlignment = Enum.TextXAlignment.Left; btn.LayoutOrder = order
-	btn.ZIndex = 6; btn.Parent = infoScroll
-	btn:SetAttribute("On", default)
+	local row = Instance.new("TextButton")
+	row.Size = UDim2.new(1, 0, 0, 40)
+	row.BackgroundColor3 = C_ITEM
+	row.BackgroundTransparency = 0.4
+	row.BorderSizePixel = 0
+	row.AutoButtonColor = false
+	row.Text = ""
+	row.LayoutOrder = order
+	row.ZIndex = 6
+	row.Parent = infoScroll
+	local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
+	local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.75; rs.Color = C_STROKE; rs.Parent = row
 
-	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
-	local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
-	btn.MouseEnter:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundTransparency = 0.25 }):Play()
+	local label = Instance.new("TextLabel")
+	label.Position = UDim2.new(0, 12, 0, 0)
+	label.Size = UDim2.new(1, -66, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamMedium
+	label.Text = text
+	label.TextSize = 14
+	label.TextColor3 = C_TXT
+	label.TextTransparency = 0.1
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.ZIndex = 7
+	label.Parent = row
+
+	local switch = Instance.new("Frame")
+	switch.AnchorPoint = Vector2.new(1, 0.5)
+	switch.Position = UDim2.new(1, -12, 0.5, 0)
+	switch.Size = UDim2.new(0, 36, 0, 20)
+	switch.BackgroundColor3 = C_SWITCH_OFF
+	switch.BorderSizePixel = 0
+	switch.ZIndex = 7
+	switch.Parent = row
+	local sc = Instance.new("UICorner"); sc.CornerRadius = UDim.new(1, 0); sc.Parent = switch
+
+	local knob = Instance.new("Frame")
+	knob.AnchorPoint = Vector2.new(0, 0.5)
+	knob.Position = UDim2.new(0, 2, 0.5, 0)
+	knob.Size = UDim2.new(0, 16, 0, 16)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 8
+	knob.Parent = switch
+	local kc = Instance.new("UICorner"); kc.CornerRadius = UDim.new(1, 0); kc.Parent = knob
+	local kShadow = Instance.new("UIStroke"); kShadow.Thickness = 1; kShadow.Transparency = 0.7; kShadow.Color = Color3.new(0,0,0); kShadow.Parent = knob
+
+	local function setState(on, animate)
+		local tInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local targetKnobPos = on and UDim2.new(1, -18, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)
+		local targetColor = on and C_ACCENT or C_SWITCH_OFF
+		if animate then
+			TweenService:Create(switch, tInfo, { BackgroundColor3 = targetColor }):Play()
+			TweenService:Create(knob, tInfo, { Position = targetKnobPos }):Play()
+		else
+			switch.BackgroundColor3 = targetColor
+			knob.Position = targetKnobPos
+		end
+	end
+	setState(default, false)
+	row:SetAttribute("On", default)
+
+	row.MouseEnter:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.15), { BackgroundTransparency = 0.25 }):Play()
 	end)
-	btn.MouseLeave:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundTransparency = btn:GetAttribute("On") and 0.15 or 0.4 }):Play()
+	row.MouseLeave:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.15), { BackgroundTransparency = 0.4 }):Play()
 	end)
-	btn.MouseButton1Click:Connect(function()
-		local on = not btn:GetAttribute("On")
-		btn:SetAttribute("On", on)
-		btn.Text = "  " .. text .. "    [" .. (on and "开" or "关") .. "]"
-		TweenService:Create(btn, TweenInfo.new(0.15), {
-			BackgroundColor3 = on and C_ITEM_ACT or C_ITEM,
-			BackgroundTransparency = on and 0.15 or 0.4,
-		}):Play()
+	row.MouseButton1Click:Connect(function()
+		local on = not row:GetAttribute("On")
+		row:SetAttribute("On", on)
+		setState(on, true)
 		if onChanged then onChanged(on) end
 	end)
-	return btn
+	return row
 end
 
--- ★ 自写滑动条（不依赖 WindUI）
+-- ★ 数值滑动条
 local function makeSlider(text, order, minV, maxV, default, step, onChanged)
 	local wrap = Instance.new("Frame")
-	wrap.Size = UDim2.new(1, 0, 0, 52)
-	wrap.BackgroundColor3 = C_ITEM; wrap.BackgroundTransparency = 0.4
-	wrap.BorderSizePixel = 0; wrap.LayoutOrder = order; wrap.ZIndex = 6
+	wrap.Name = "SliderWrap"
+	wrap.Size = UDim2.new(1, 0, 0, 54)
+	wrap.BackgroundColor3 = C_ITEM
+	wrap.BackgroundTransparency = 0.4
+	wrap.BorderSizePixel = 0
+	wrap.LayoutOrder = order
+	wrap.ZIndex = 6
 	wrap.Parent = infoScroll
 	local wc = Instance.new("UICorner"); wc.CornerRadius = UDim.new(0, 8); wc.Parent = wrap
 	local ws = Instance.new("UIStroke"); ws.Thickness = 1; ws.Transparency = 0.75; ws.Color = C_STROKE; ws.Parent = wrap
 
 	local label = Instance.new("TextLabel")
-	label.Position = UDim2.new(0, 8, 0, 4); label.Size = UDim2.new(1, -16, 0, 18)
-	label.BackgroundTransparency = 1; label.Font = Enum.Font.GothamMedium
-	label.Text = text .. ": " .. tostring(default)
-	label.TextSize = 13; label.TextColor3 = C_TXT; label.TextXAlignment = Enum.TextXAlignment.Left
-	label.ZIndex = 7; label.Parent = wrap
+	label.Position = UDim2.new(0, 12, 0, 6)
+	label.Size = UDim2.new(1, -90, 0, 18)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamMedium
+	label.Text = text
+	label.TextSize = 13
+	label.TextColor3 = C_TXT
+	label.TextTransparency = 0.1
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.ZIndex = 7
+	label.Parent = wrap
+
+	local valueLbl = Instance.new("TextLabel")
+	valueLbl.AnchorPoint = Vector2.new(1, 0)
+	valueLbl.Position = UDim2.new(1, -12, 0, 6)
+	valueLbl.Size = UDim2.new(0, 70, 0, 18)
+	valueLbl.BackgroundTransparency = 1
+	valueLbl.Font = Enum.Font.GothamBold
+	valueLbl.TextSize = 13
+	valueLbl.TextColor3 = C_ACCENT
+	valueLbl.TextXAlignment = Enum.TextXAlignment.Right
+	valueLbl.ZIndex = 7
+	valueLbl.Parent = wrap
 
 	local track = Instance.new("Frame")
-	track.Position = UDim2.new(0, 8, 0, 30); track.Size = UDim2.new(1, -16, 0, 6)
-	track.BackgroundColor3 = Color3.fromRGB(50, 50, 62); track.BackgroundTransparency = 0.2
-	track.BorderSizePixel = 0; track.ZIndex = 7; track.Parent = wrap
+	track.Position = UDim2.new(0, 12, 0, 34)
+	track.Size = UDim2.new(1, -24, 0, 6)
+	track.BackgroundColor3 = Color3.fromRGB(50, 50, 62)
+	track.BackgroundTransparency = 0.2
+	track.BorderSizePixel = 0
+	track.ZIndex = 7
+	track.Parent = wrap
 	local tc = Instance.new("UICorner"); tc.CornerRadius = UDim.new(1, 0); tc.Parent = track
+	local tp = Instance.new("UIPadding"); tp.PaddingLeft = UDim.new(0, 8); tp.PaddingRight = UDim.new(0, 8); tp.Parent = track
 
 	local fill = Instance.new("Frame")
-	fill.Size = UDim2.new(0, 0, 1, 0); fill.BackgroundColor3 = C_ACCENT
-	fill.BorderSizePixel = 0; fill.ZIndex = 8; fill.Parent = track
+	fill.Size = UDim2.new(0, 0, 1, 0)
+	fill.BackgroundColor3 = C_ACCENT
+	fill.BorderSizePixel = 0
+	fill.ZIndex = 8
+	fill.Parent = track
 	local fc = Instance.new("UICorner"); fc.CornerRadius = UDim.new(1, 0); fc.Parent = fill
 
-	local knob = Instance.new("TextButton")
-	knob.AnchorPoint = Vector2.new(0.5, 0.5); knob.Position = UDim2.new(0, 0, 0.5, 0)
-	knob.Size = UDim2.new(0, 14, 0, 14); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	knob.BorderSizePixel = 0; knob.AutoButtonColor = false; knob.Text = ""
-	knob.ZIndex = 9; knob.Parent = track
+	local knob = Instance.new("Frame")
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	knob.Position = UDim2.new(0, 0, 0.5, 0)
+	knob.Size = UDim2.new(0, 16, 0, 16)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 9
+	knob.Parent = track
 	local kc = Instance.new("UICorner"); kc.CornerRadius = UDim.new(1, 0); kc.Parent = knob
+	local kStroke = Instance.new("UIStroke"); kStroke.Thickness = 1; kStroke.Transparency = 0.3; kStroke.Color = C_STROKE; kStroke.Parent = knob
 
+	local function formatVal(v)
+		if step and step < 1 then return string.format("%.2f", v) end
+		return tostring(math.floor(v))
+	end
 	local value = default
-
+	local function apply(v)
+		value = v
+		local ratio = (maxV > minV) and (v - minV) / (maxV - minV) or 0
+		fill.Size = UDim2.new(ratio, 0, 1, 0)
+		knob.Position = UDim2.new(ratio, 0, 0.5, 0)
+		valueLbl.Text = formatVal(v)
+	end
 	local function setValueFromX(x)
 		local absTrack = track.AbsolutePosition
 		local absSize = track.AbsoluteSize
-		local ratio = math.clamp((x - absTrack.X) / math.max(absSize.X, 1), 0, 1)
+		local leftPad, rightPad = 8, 8
+		local contentX = absTrack.X + leftPad
+		local contentW = math.max(absSize.X - leftPad - rightPad, 1)
+		local ratio = math.clamp((x - contentX) / contentW, 0, 1)
 		local v = minV + (maxV - minV) * ratio
 		if step and step > 0 then v = math.floor(v / step + 0.5) * step end
 		v = math.clamp(v, minV, maxV)
-		value = v
-		fill.Size = UDim2.new(ratio, 0, 1, 0)
-		knob.Position = UDim2.new(ratio, 0, 0.5, 0)
-		label.Text = text .. ": " .. (step and step < 1 and string.format("%.2f", v) or tostring(math.floor(v)))
+		apply(v)
 		if onChanged then onChanged(v) end
 	end
-
-	-- 初始化
-	local initRatio = (default - minV) / (maxV - minV)
-	fill.Size = UDim2.new(initRatio, 0, 1, 0)
-	knob.Position = UDim2.new(initRatio, 0, 0.5, 0)
+	apply(default)
 
 	local draggingSlider = false
+	local conns = {}
+
+	local function startDrag()
+		draggingSlider = true
+		infoScroll.ScrollingEnabled = false
+	end
+	local function stopDrag()
+		draggingSlider = false
+		infoScroll.ScrollingEnabled = true
+	end
+
 	knob.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			draggingSlider = true
+			startDrag()
 		end
 	end)
 	track.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			setValueFromX(input.Position.X)
-			draggingSlider = true
+			startDrag()
 		end
 	end)
-	UserInput.InputChanged:Connect(function(input)
+	table.insert(conns, UserInput.InputChanged:Connect(function(input)
 		if not draggingSlider then return end
 		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 			setValueFromX(input.Position.X)
 		end
-	end)
-	UserInput.InputEnded:Connect(function(input)
+	end))
+	table.insert(conns, UserInput.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			draggingSlider = false
+			if draggingSlider then stopDrag() end
 		end
+	end))
+	wrap.Destroying:Connect(function()
+		for _, c in ipairs(conns) do c:Disconnect() end
 	end)
 
-	return wrap, function() return value end, setValueFromX
+	return wrap
+end
+
+-- ★ 循环切换控件（下拉替代）
+local function makeCycle(text, order, options, default, onChanged)
+	local row = Instance.new("TextButton")
+	row.Size = UDim2.new(1, 0, 0, 40)
+	row.BackgroundColor3 = C_ITEM
+	row.BackgroundTransparency = 0.4
+	row.BorderSizePixel = 0
+	row.AutoButtonColor = false
+	row.Text = ""
+	row.LayoutOrder = order
+	row.ZIndex = 6
+	row.Parent = infoScroll
+	local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
+	local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.75; rs.Color = C_STROKE; rs.Parent = row
+
+	local label = Instance.new("TextLabel")
+	label.Position = UDim2.new(0, 12, 0, 0)
+	label.Size = UDim2.new(0.5, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamMedium
+	label.Text = text
+	label.TextSize = 14
+	label.TextColor3 = C_TXT
+	label.TextTransparency = 0.1
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.ZIndex = 7
+	label.Parent = row
+
+	local valueLbl = Instance.new("TextLabel")
+	valueLbl.AnchorPoint = Vector2.new(1, 0.5)
+	valueLbl.Position = UDim2.new(1, -12, 0.5, 0)
+	valueLbl.Size = UDim2.new(0.5, -12, 1, 0)
+	valueLbl.BackgroundTransparency = 1
+	valueLbl.Font = Enum.Font.GothamBold
+	valueLbl.TextSize = 13
+	valueLbl.TextColor3 = C_ACCENT
+	valueLbl.TextXAlignment = Enum.TextXAlignment.Right
+	valueLbl.ZIndex = 7
+	valueLbl.Parent = row
+
+	local current = default
+	local function render()
+		valueLbl.Text = tostring(current) .. "  ▾"
+	end
+	render()
+
+	row.MouseEnter:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM_HOVER, BackgroundTransparency = 0.25 }):Play()
+	end)
+	row.MouseLeave:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4 }):Play()
+	end)
+	row.MouseButton1Click:Connect(function()
+		local idx = 1
+		for i, v in ipairs(options) do
+			if v == current then idx = i; break end
+		end
+		idx = idx % #options + 1
+		current = options[idx]
+		render()
+		if onChanged then onChanged(current) end
+	end)
+	return row
 end
 
 -- ============ 导航项 ============
@@ -326,10 +542,8 @@ local function makeNavItem(label, order, onClick)
 	btn.TextSize = 14; btn.TextColor3 = C_TXT_DIM; btn.TextTransparency = 0.25
 	btn.TextXAlignment = Enum.TextXAlignment.Left; btn.LayoutOrder = order
 	btn.ZIndex = 6; btn.Parent = navList
-
 	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
 	local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
-
 	btn.MouseEnter:Connect(function()
 		if activeItem == btn then return end
 		TweenService:Create(btn, TweenInfo.new(0.15), {
@@ -355,31 +569,42 @@ end
 -- ============ 内容清理 ============
 local function clearContent()
 	for _, ch in ipairs(infoScroll:GetChildren()) do
-		if ch:IsA("TextButton") or (ch:IsA("Frame") and ch.Name == "SliderWrap") then
+		if ch ~= infoLayout and ch ~= infoPad then
 			ch:Destroy()
 		end
 	end
 end
 
--- ============ 页面：公告 ============
-local INFO_ROWS = {
-	"Pinms 圣奥里项目「ice」内测",
-	"版本：v1",
-	"最后一次更新：2000 1-1",
-	"pinms现支持服务器：",
-	"圣奥里",
-	"制作人：Oreo  LinX",
-	"师傅：LinX",
-	"官方QQ群号：1043827844",
-	"未来持续更新更多服务器",
-}
+-- ==========================================================
+--                      页面函数
+-- ==========================================================
+
+-- 页面：公告
 local function pageAnnounce()
 	contentTitle.Text = "公告"
 	clearContent()
-	for i, txt in ipairs(INFO_ROWS) do makeRow(txt, i) end
+	local i = 0
+	i = i + 1; makeSection("项目信息", i)
+	i = i + 1; makeInfoCard("Pinms 圣奥里项目「ice」内测", i, true)
+	i = i + 1; makeInfoCard("版本：v1", i)
+	i = i + 1; makeInfoCard("最后一次更新：2000 1-1", i)
+
+	i = i + 1; makeSection("支持服务器", i)
+	i = i + 1; makeInfoCard("pinms 现支持服务器：", i, true)
+	i = i + 1; makeInfoCard("圣奥里", i)
+
+	i = i + 1; makeSection("制作团队", i)
+	i = i + 1; makeInfoCard("制作人：Oreo  LinX", i)
+	i = i + 1; makeInfoCard("师傅：LinX", i)
+
+	i = i + 1; makeSection("联系方式", i)
+	i = i + 1; makeInfoCard("官方 QQ 群号：1043827844", i, true)
+
+	i = i + 1; makeSection("其他", i)
+	i = i + 1; makeInfoCard("未来持续更新更多服务器", i)
 end
 
--- ============ 战斗配置 ============
+-- 战斗配置
 local CombatConfig = {
 	auraEnabled     = false,
 	auraRange       = 120,
@@ -392,7 +617,7 @@ local CombatConfig = {
 	auraBeam        = false,
 }
 
--- ============ 通用工具 ============
+-- 通用
 local function GetCharacter(player)
 	player = player or LocalPlayer
 	local char = player.Character
@@ -417,7 +642,6 @@ local function inCombat(player, enabled)
 	return player:GetAttribute("CombatMode") == true or player:GetAttribute("Pursuit") == true
 end
 
--- ============ 弹道 ============
 local function createBeam(startPos, endPos)
 	local p1 = Instance.new("Part"); local p2 = Instance.new("Part")
 	for _, p in ipairs({p1, p2}) do
@@ -434,16 +658,14 @@ local function createBeam(startPos, endPos)
 	task.delay(0.8, function() pcall(function() p1:Destroy(); p2:Destroy() end) end)
 end
 
--- ============ 杀戮光环（多目标 · 绕过）============
+-- 杀戮光环（多目标）
 local auraLast = 0
 RunService.Heartbeat:Connect(function()
 	if not CombatConfig.auraEnabled or not PlayerEvent then return end
 	local now = tick()
 	if now - auraLast < CombatConfig.auraInterval then return end
-
 	local _, _, myRoot = GetCharacter(LocalPlayer)
 	if not myRoot then return end
-
 	local targets = {}
 	for _, player in ipairs(Players:GetPlayers()) do
 		if targetAllowed(player, CombatConfig.auraOnlyPolice, CombatConfig.auraOnlyCivilian)
@@ -461,7 +683,6 @@ RunService.Heartbeat:Connect(function()
 	table.sort(targets, function(a, b) return a.dist < b.dist end)
 	local count = math.min(#targets, CombatConfig.auraMaxTargets)
 	local myPos = myRoot.Position
-
 	for i = 1, count do
 		local t = targets[i]
 		pcall(function()
@@ -481,7 +702,32 @@ RunService.Heartbeat:Connect(function()
 	auraLast = now
 end)
 
--- ============ ESP ============
+-- 页面：战斗
+local function pageCombat()
+	contentTitle.Text = "杀戮光环"
+	clearContent()
+	local i = 0
+	i = i + 1; makeSection("开关", i)
+	i = i + 1; makeToggle("开启杀戮光环（多目标）", i, CombatConfig.auraEnabled, function(on) CombatConfig.auraEnabled = on end)
+	i = i + 1; makeToggle("只攻击警察", i, CombatConfig.auraOnlyPolice, function(on)
+		CombatConfig.auraOnlyPolice = on
+		if on then CombatConfig.auraOnlyCivilian = false end
+	end)
+	i = i + 1; makeToggle("只攻击平民", i, CombatConfig.auraOnlyCivilian, function(on)
+		CombatConfig.auraOnlyCivilian = on
+		if on then CombatConfig.auraOnlyPolice = false end
+	end)
+	i = i + 1; makeToggle("战斗状态检测", i, CombatConfig.auraCombatCheck, function(on) CombatConfig.auraCombatCheck = on end)
+	i = i + 1; makeToggle("弹道显示", i, CombatConfig.auraBeam, function(on) CombatConfig.auraBeam = on end)
+
+	i = i + 1; makeSection("数值", i)
+	i = i + 1; makeSlider("攻击范围", i, 10, 500, CombatConfig.auraRange, 5, function(v) CombatConfig.auraRange = v end)
+	i = i + 1; makeSlider("伤害倍率", i, 1, 100, CombatConfig.auraDamage, 1, function(v) CombatConfig.auraDamage = v end)
+	i = i + 1; makeSlider("同时目标数", i, 1, 10, CombatConfig.auraMaxTargets, 1, function(v) CombatConfig.auraMaxTargets = math.floor(v) end)
+	i = i + 1; makeSlider("攻击间隔（秒）", i, 0.01, 1, CombatConfig.auraInterval, 0.01, function(v) CombatConfig.auraInterval = v end)
+end
+
+-- ESP
 local ESP = {
 	enabled = false, name = true, distance = true, health = true, highlight = true,
 	tracer = false, tracerOrigin = "屏幕底部", showFugitive = true,
@@ -600,51 +846,33 @@ end)
 Players.PlayerRemoving:Connect(removeESP)
 RunService.Heartbeat:Connect(function() if ESP.enabled then refreshESP() end end)
 
--- ============ 页面：战斗 ============
-local function pageCombat()
-	contentTitle.Text = "杀戮光环"
-	clearContent()
-	local i = 0
-	i=i+1; makeToggle("开启杀戮光环（多目标）", i, false, function(on) CombatConfig.auraEnabled = on end)
-	i=i+1; makeToggle("只攻击警察", i, false, function(on) CombatConfig.auraOnlyPolice = on; if on then CombatConfig.auraOnlyCivilian = false end end)
-	i=i+1; makeToggle("只攻击平民", i, false, function(on) CombatConfig.auraOnlyCivilian = on; if on then CombatConfig.auraOnlyPolice = false end end)
-	i=i+1; makeToggle("战斗检测", i, false, function(on) CombatConfig.auraCombatCheck = on end)
-	i=i+1; makeToggle("弹道显示", i, false, function(on) CombatConfig.auraBeam = on end)
-
-	i=i+1
-	makeSlider("攻击范围", i, 10, 500, CombatConfig.auraRange, 5, function(v) CombatConfig.auraRange = v end)
-	i=i+1
-	makeSlider("伤害倍率", i, 1, 100, CombatConfig.auraDamage, 1, function(v) CombatConfig.auraDamage = v end)
-	i=i+1
-	makeSlider("同时目标数", i, 1, 10, CombatConfig.auraMaxTargets, 1, function(v) CombatConfig.auraMaxTargets = math.floor(v) end)
-	i=i+1
-	makeSlider("攻击间隔", i, 0.01, 1, CombatConfig.auraInterval, 0.01, function(v) CombatConfig.auraInterval = v end)
-end
-
--- ============ 页面：ESP ============
 local function pageESP()
 	contentTitle.Text = "ESP"
 	clearContent()
 	local i = 0
-	i=i+1; makeToggle("透视总开关", i, false, function(on)
+	i = i + 1; makeSection("总控", i)
+	i = i + 1; makeToggle("透视总开关", i, ESP.enabled, function(on)
 		ESP.enabled = on
 		if on then refreshESP() else for p in pairs(ESP.trackers) do removeESP(p) end end
 	end)
-	i=i+1; makeToggle("显示名字", i, true, function(on) ESP.name = on end)
-	i=i+1; makeToggle("显示距离", i, true, function(on) ESP.distance = on end)
-	i=i+1; makeToggle("显示血量", i, true, function(on) ESP.health = on end)
-	i=i+1; makeToggle("显示高亮", i, true, function(on) ESP.highlight = on end)
-	i=i+1; makeToggle("显示追踪线", i, false, function(on) ESP.tracer = on end)
-	i=i+1; makeRow("追踪线起点: 屏幕底部 (点击切换)", i, function()
-		local order = {"屏幕底部","屏幕中心","屏幕顶部"}
-		for idx, v in ipairs(order) do if v == ESP.tracerOrigin then ESP.tracerOrigin = order[idx % 3 + 1]; break end end
-		contentTitle.Text = "ESP · 起点 " .. ESP.tracerOrigin
+
+	i = i + 1; makeSection("显示内容", i)
+	i = i + 1; makeToggle("显示名字", i, ESP.name, function(on) ESP.name = on end)
+	i = i + 1; makeToggle("显示距离", i, ESP.distance, function(on) ESP.distance = on end)
+	i = i + 1; makeToggle("显示血量", i, ESP.health, function(on) ESP.health = on end)
+	i = i + 1; makeToggle("显示高亮", i, ESP.highlight, function(on) ESP.highlight = on end)
+	i = i + 1; makeToggle("显示追踪线", i, ESP.tracer, function(on) ESP.tracer = on end)
+	i = i + 1; makeCycle("追踪线起点", i, {"屏幕底部","屏幕中心","屏幕顶部"}, ESP.tracerOrigin, function(v)
+		ESP.tracerOrigin = v
 	end)
-	i=i+1; makeToggle("显示逃犯(红)", i, true, function(on) ESP.showFugitive = on; refreshESP() end)
-	i=i+1; makeToggle("警察透视", i, true, function(on) ESP.selectedTeams.Police = on; refreshESP() end)
-	i=i+1; makeToggle("平民透视", i, true, function(on) ESP.selectedTeams.Civilian = on; refreshESP() end)
-	i=i+1; makeToggle("消防透视", i, true, function(on) ESP.selectedTeams.Fire = on; refreshESP() end)
-	i=i+1; makeToggle("医护透视", i, true, function(on) ESP.selectedTeams.Medical = on; refreshESP() end)
+
+	i = i + 1; makeSection("队伍", i)
+	i = i + 1; makeToggle("显示逃犯（红色）", i, ESP.showFugitive, function(on) ESP.showFugitive = on; refreshESP() end)
+	i = i + 1; makeToggle("警察透视", i, ESP.selectedTeams.Police, function(on) ESP.selectedTeams.Police = on; refreshESP() end)
+	i = i + 1; makeToggle("平民透视", i, ESP.selectedTeams.Civilian, function(on) ESP.selectedTeams.Civilian = on; refreshESP() end)
+	i = i + 1; makeToggle("消防透视", i, ESP.selectedTeams.Fire, function(on) ESP.selectedTeams.Fire = on; refreshESP() end)
+	i = i + 1; makeToggle("医护透视", i, ESP.selectedTeams.Medical, function(on) ESP.selectedTeams.Medical = on; refreshESP() end)
+	i = i + 1; makeToggle("囚犯透视", i, ESP.selectedTeams.Prisoner, function(on) ESP.selectedTeams.Prisoner = on; refreshESP() end)
 end
 
 -- ============ 导航 ============
@@ -654,7 +882,7 @@ makeNavItem("ESP",  3, pageESP)
 setActive(navList:FindFirstChild("公告"))
 pageAnnounce()
 
--- ============ 右上角最小化 ============
+-- ============ 最小化按钮 ============
 local minBtn = Instance.new("TextButton")
 minBtn.Name = "Minimize"
 minBtn.AnchorPoint = Vector2.new(1, 0); minBtn.Position = UDim2.new(1, -10, 0, 10)
@@ -666,7 +894,7 @@ minBtn.ZIndex = 20; minBtn.Parent = panel
 local minCorner = Instance.new("UICorner"); minCorner.CornerRadius = UDim.new(0, 8); minCorner.Parent = minBtn
 local minStroke = Instance.new("UIStroke"); minStroke.Thickness = 1; minStroke.Transparency = 0.5; minStroke.Color = C_STROKE; minStroke.Parent = minBtn
 
--- ============ 右下角小圆点 ============
+-- 右下角小圆点
 local resizeDot = Instance.new("TextButton")
 resizeDot.Name = "ResizeDot"
 resizeDot.AnchorPoint = Vector2.new(1, 1); resizeDot.Position = UDim2.new(1, -9, 1, -9)
@@ -677,7 +905,7 @@ resizeDot.ZIndex = 20; resizeDot.Parent = panel
 local dotCorner = Instance.new("UICorner"); dotCorner.CornerRadius = UDim.new(1, 0); dotCorner.Parent = resizeDot
 local dotStroke = Instance.new("UIStroke"); dotStroke.Thickness = 1; dotStroke.Transparency = 0.3; dotStroke.Color = C_STROKE; dotStroke.Parent = resizeDot
 
--- ============ 底部小长条 ============
+-- 底部小长条
 local dragBar = Instance.new("TextButton")
 dragBar.Name = "DragBar"
 dragBar.AnchorPoint = Vector2.new(0.5, 1); dragBar.Position = UDim2.new(0.5, 0, 1, -14)
@@ -691,49 +919,32 @@ local dragCorner = Instance.new("UICorner"); dragCorner.CornerRadius = UDim.new(
 local minimized = false
 local animating = false
 local activeDrag = nil
-
 local ISLAND_TWEEN = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local CORNER_TWEEN = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- ============ ★ 修复：收起时不改透明度，直接隐藏 ============
 local function minimize()
 	if minimized or animating then return end
 	minimized = true; animating = true
-
-	-- 面板形变
 	TweenService:Create(panel, ISLAND_TWEEN, {
 		Position = ISLAND_POS, Size = ISLAND_SIZE, BackgroundTransparency = 0.02,
 	}):Play()
 	TweenService:Create(panelCorner, CORNER_TWEEN, { CornerRadius = UDim.new(1, 0) }):Play()
-
 	task.delay(ISLAND_TWEEN.Time, function()
 		animating = false
-		-- ★ 关键：所有内容直接隐藏（不改透明度），展开时再显示
-		nav.Visible = false
-		content.Visible = false
-		minBtn.Visible = false
-		resizeDot.Visible = false
-		dragBar.Visible = false
+		nav.Visible = false; content.Visible = false
+		minBtn.Visible = false; resizeDot.Visible = false; dragBar.Visible = false
 	end)
 end
 
 local function expand()
 	if not minimized or animating then return end
 	minimized = false; animating = true
-
-	-- ★ 展开第一步：先全部显示（透明度还是收起前的正常值）
-	nav.Visible = true
-	content.Visible = true
-	minBtn.Visible = true
-	resizeDot.Visible = true
-	dragBar.Visible = true
-
-	-- 面板还原
+	nav.Visible = true; content.Visible = true
+	minBtn.Visible = true; resizeDot.Visible = true; dragBar.Visible = true
 	TweenService:Create(panel, ISLAND_TWEEN, {
 		Position = EXPAND_POS, Size = EXPAND_SIZE, BackgroundTransparency = 0.06,
 	}):Play()
 	TweenService:Create(panelCorner, CORNER_TWEEN, { CornerRadius = UDim.new(0, 18) }):Play()
-
 	task.delay(ISLAND_TWEEN.Time, function() animating = false end)
 end
 
@@ -744,7 +955,7 @@ panel.InputBegan:Connect(function(input)
 	if minimized and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then expand() end
 end)
 
--- ============ 拖拽调大小 ============
+-- 拖拽调大小
 local resizing = false
 local resizeStartSize, resizeStartMouse
 resizeDot.InputBegan:Connect(function(input)
@@ -757,7 +968,7 @@ resizeDot.InputBegan:Connect(function(input)
 	end
 end)
 
--- ============ 拖动整个 UI ============
+-- 拖动整个 UI
 local dragging = false
 local dragStartPos, dragStartMouse
 dragBar.InputBegan:Connect(function(input)
@@ -791,7 +1002,7 @@ UserInput.InputEnded:Connect(function(input)
 	if dragging then dragging = false; activeDrag = nil; dragBar.BackgroundTransparency = 0.4 end
 end)
 
--- ============ 循环动画 ============
+-- 循环动画
 local t0 = os.clock()
 _G.RainbowBannerConn = RunService.RenderStepped:Connect(function()
 	local now = os.clock() - t0
@@ -806,4 +1017,4 @@ gui.Destroying:Connect(function()
 	if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
 end)
 
-print("RainbowBannerUI · 战斗/ESP · 滑动条 已加载")
+print("RainbowBannerUI · 已加载")
