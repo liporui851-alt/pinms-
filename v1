@@ -1,7 +1,9 @@
 --[[
-    RainbowBannerUI · PYHUB 全功能整合版
-    · 导航栏可滚动（ScrollingFrame）
-    · 按钮恢复 32px 高 + 8px 圆角，不挤
+    RainbowBannerUI · PYHUB 全功能整合版 + Pinms 水印
+    · 左侧导航 10 页（可滚动）
+    · 真正的 Toggle / Slider / Cycle / InfoCard
+    · 收起为顶部灵动岛，展开后内容原样保留
+    · 全屏 Pinms 平铺水印（独立 ScreenGui）
 --]]
 
 local Players           = game:GetService("Players")
@@ -1144,7 +1146,6 @@ local panelCorner = Instance.new("UICorner"); panelCorner.CornerRadius = UDim.ne
 local panelStroke = Instance.new("UIStroke"); panelStroke.Thickness = 1; panelStroke.Transparency = 0.25; panelStroke.Color = C_STROKE; panelStroke.Parent = panel
 local panelGrad = Instance.new("UIGradient"); panelGrad.Color = buildGradient(0, 0.9, 1); panelGrad.Rotation = 8; panelGrad.Parent = panelStroke
 
--- 左侧导航栏
 local nav = Instance.new("Frame")
 nav.Position = UDim2.fromScale(0,0); nav.Size = UDim2.fromScale(NAV_W, 1)
 nav.BackgroundColor3 = C_NAV; nav.BackgroundTransparency = 0.35
@@ -1161,7 +1162,6 @@ navTitle.Text = "  NAVIGATION"; navTitle.TextSize = 11; navTitle.TextColor3 = C_
 navTitle.TextTransparency = 0.25; navTitle.TextXAlignment = Enum.TextXAlignment.Left
 navTitle.ZIndex = 5; navTitle.Parent = nav
 
--- ★ 导航列表：改用 ScrollingFrame 可滚动
 local navList = Instance.new("ScrollingFrame")
 navList.Position = UDim2.fromScale(0.05, 0.13)
 navList.Size = UDim2.fromScale(0.90, 0.83)
@@ -1181,7 +1181,7 @@ navList.Parent = nav
 local navLayout = Instance.new("UIListLayout")
 navLayout.FillDirection = Enum.FillDirection.Vertical
 navLayout.SortOrder = Enum.SortOrder.LayoutOrder
-navLayout.Padding = UDim.new(0, 4)   -- 间距 4，不挤
+navLayout.Padding = UDim.new(0, 4)
 navLayout.Parent = navList
 
 local navPad = Instance.new("UIPadding")
@@ -1189,7 +1189,6 @@ navPad.PaddingRight = UDim.new(0, 6)
 navPad.PaddingBottom = UDim.new(0, 6)
 navPad.Parent = navList
 
--- 内容区
 local content = Instance.new("Frame")
 content.Position = UDim2.fromScale(NAV_W, 0); content.Size = UDim2.fromScale(1-NAV_W, 1)
 content.BackgroundTransparency = 1; content.ZIndex = 2; content.Parent = panel
@@ -1426,14 +1425,14 @@ local function setActive(item)
 end
 local function makeNavItem(label, order, onClick)
     local btn = Instance.new("TextButton")
-    btn.Name = label; btn.Size = UDim2.new(1, 0, 0, 32)   -- ★ 恢复 32px
+    btn.Name = label; btn.Size = UDim2.new(1, 0, 0, 32)
     btn.BackgroundColor3 = C_ITEM; btn.BackgroundTransparency = 0.4
     btn.BorderSizePixel = 0; btn.AutoButtonColor = false
     btn.Font = Enum.Font.GothamMedium; btn.Text = "  " .. label
     btn.TextSize = 14; btn.TextColor3 = C_TXT_DIM; btn.TextTransparency = 0.25
     btn.TextXAlignment = Enum.TextXAlignment.Left; btn.LayoutOrder = order
     btn.ZIndex = 6; btn.Parent = navList
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn   -- ★ 恢复 8px 圆角
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
     local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
     btn.MouseEnter:Connect(function()
         if activeItem == btn then return end
@@ -1796,4 +1795,94 @@ gui.Destroying:Connect(function()
     if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
 end)
 
-print("RainbowBannerUI · 导航滚动版 已加载")
+-- ==========================================================
+--                    ★ 水印（Pinms 平铺）
+-- ==========================================================
+do
+    local oldWM = pg:FindFirstChild("BypassWatermark")
+    if oldWM then oldWM:Destroy() end
+    if _G.CodexWMConn then _G.CodexWMConn:Disconnect(); _G.CodexWMConn = nil end
+
+    local WM_TEXT = "Pinms项目内测版（已包含绕过）"
+    local WM_ROT = -15
+
+    local function buildWatermarkGradient(hueShift, sat, val)
+        local stops = {0.00, 0.45, 0.75, 1.00}
+        local baseH = {0.50, 0.70, 0.90, 0.12}
+        local keys = {}
+        for i, s in ipairs(stops) do
+            local h = (baseH[i] + hueShift) % 1
+            keys[i] = ColorSequenceKeypoint.new(s, Color3.fromHSV(h, sat, val))
+        end
+        return ColorSequence.new(keys)
+    end
+
+    local wmGui = Instance.new("ScreenGui")
+    wmGui.Name = "BypassWatermark"
+    wmGui.ResetOnSpawn = false
+    wmGui.IgnoreGuiInset = true
+    wmGui.DisplayOrder = 998
+    wmGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    wmGui.Parent = pg
+
+    local wmMarks = {}
+    local COLS, ROWS = 5, 6
+    local startX, endX = 0.06, 0.94
+    local startY, endY = 0.06, 0.94
+    local stepX = (endX - startX) / (COLS - 1)
+    local stepY = (endY - startY) / (ROWS - 1)
+
+    for r = 0, ROWS - 1 do
+        for c = 0, COLS - 1 do
+            local t = Instance.new("TextLabel")
+            t.Name = string.format("Mark_%d_%d", r, c)
+            t.AnchorPoint = Vector2.new(0.5, 0.5)
+            t.Position = UDim2.fromScale(startX + c * stepX, startY + r * stepY)
+            t.Size = UDim2.fromScale(stepX * 0.98, stepY * 0.42)
+            t.BackgroundTransparency = 1
+            t.BorderSizePixel = 0
+            t.Font = Enum.Font.GothamBold
+            t.Text = WM_TEXT
+            t.TextScaled = true
+            t.TextWrapped = false
+            t.TextXAlignment = Enum.TextXAlignment.Center
+            t.TextYAlignment = Enum.TextYAlignment.Center
+            t.TextColor3 = Color3.fromRGB(255, 255, 255)
+            t.TextTransparency = 0.62
+            t.Active = false
+            t.Selectable = false
+            t.Rotation = WM_ROT
+            t.Parent = wmGui
+
+            local grad = Instance.new("UIGradient")
+            grad.Color = buildWatermarkGradient(0, 0.9, 1)
+            grad.Rotation = 8
+            grad.Parent = t
+
+            table.insert(wmMarks, {label=t, grad=grad, phase=(r + c) * 0.4, baseRot=8})
+        end
+    end
+
+    local wmT0 = os.clock()
+    _G.CodexWMConn = RunService.RenderStepped:Connect(function()
+        local now = os.clock() - wmT0
+        local hueShift = (now * 0.35) % 1
+        local val = 0.88 + ((math.sin(now * 2.2) + 1) / 2) * 0.12
+        local seq = buildWatermarkGradient(hueShift, 0.9, val)
+
+        for _, m in ipairs(wmMarks) do
+            m.grad.Color = seq
+            m.grad.Rotation = m.baseRot + math.sin(now * 0.8 + m.phase) * 22
+            m.grad.Offset = Vector2.new(math.sin(now * 0.9 + m.phase) * 0.10, 0)
+            m.label.TextTransparency = 0.60 + ((math.sin(now * 1.8 + m.phase) + 1) / 2) * 0.10
+        end
+    end)
+
+    wmGui.Destroying:Connect(function()
+        if _G.CodexWMConn then _G.CodexWMConn:Disconnect(); _G.CodexWMConn = nil end
+    end)
+
+    print("水印：" .. (#wmMarks) .. " 个 · 左右对称平铺")
+end
+
+print("RainbowBannerUI · 全功能 + 水印 已加载")
