@@ -1,4 +1,8 @@
---[[ RainbowBannerUI · PYHUB 完整整合版 ]]
+--[[
+    RainbowBannerUI · PYHUB 全功能整合版
+    · 导航栏可滚动（ScrollingFrame）
+    · 按钮恢复 32px 高 + 8px 圆角，不挤
+--]]
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,17 +16,13 @@ local Workspace         = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local pg = LocalPlayer:WaitForChild("PlayerGui")
 
--- 清理
-local OLD = "RainbowBannerUI"
-if pg:FindFirstChild(OLD) then pg[OLD]:Destroy() end
+if pg:FindFirstChild("RainbowBannerUI") then pg.RainbowBannerUI:Destroy() end
 if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
 
--- 远程
 local RemoteFolder = ReplicatedStorage:WaitForChild("Remote", 15)
 local PlayerEvent  = RemoteFolder and RemoteFolder:WaitForChild("PlayerEvent", 5)
 local PlayerFunc   = RemoteFolder and RemoteFolder:WaitForChild("PlayerFunc", 5)
 
--- 模块
 local CharacterModule, CoreModule, InventoryModule
 pcall(function()
     local framework = LocalPlayer:WaitForChild("PlayerScripts", 10):WaitForChild("Framework", 10)
@@ -32,7 +32,7 @@ pcall(function()
     if inv then InventoryModule = require(inv) end
 end)
 
--- 通用函数
+-- ============ 通用函数 ============
 local function GetCharacter(player)
     player = player or LocalPlayer
     local char = player.Character
@@ -65,13 +65,12 @@ local function EquipWeapon()
     end
 end
 
--- 颜色
 local CommonColors = {
-    ["红色"] = Color3.fromRGB(255,0,0), ["黄色"] = Color3.fromRGB(255,255,0),
-    ["绿色"] = Color3.fromRGB(0,255,0), ["蓝色"] = Color3.fromRGB(0,150,255),
-    ["紫色"] = Color3.fromRGB(150,0,255), ["白色"] = Color3.fromRGB(255,255,255),
-    ["黑色"] = Color3.fromRGB(0,0,0), ["青色"] = Color3.fromRGB(0,255,255),
-    ["橙色"] = Color3.fromRGB(255,165,0), ["粉色"] = Color3.fromRGB(255,105,180),
+    ["红色"]=Color3.fromRGB(255,0,0), ["黄色"]=Color3.fromRGB(255,255,0),
+    ["绿色"]=Color3.fromRGB(0,255,0), ["蓝色"]=Color3.fromRGB(0,150,255),
+    ["紫色"]=Color3.fromRGB(150,0,255), ["白色"]=Color3.fromRGB(255,255,255),
+    ["黑色"]=Color3.fromRGB(0,0,0), ["青色"]=Color3.fromRGB(0,255,255),
+    ["橙色"]=Color3.fromRGB(255,165,0), ["粉色"]=Color3.fromRGB(255,105,180),
 }
 local function GetRainbowColor(speed)
     speed = speed or 5
@@ -82,7 +81,6 @@ local function GetColor(name)
     return CommonColors[name] or Color3.fromRGB(255,0,0)
 end
 
--- 解 GuiParent
 local function resolveGuiParent()
     local parent
     pcall(function() if type(gethui) == "function" then parent = gethui() end end)
@@ -94,7 +92,7 @@ local function resolveGuiParent()
 end
 local UI_PARENT = resolveGuiParent()
 
--- 状态
+-- ============ 状态 ============
 local State = {
     stamina=false, food=false, combatBlock=false, ghost=false,
     noRagdoll=false, noFallDamage=false, antiPrisonPull=false,
@@ -103,7 +101,6 @@ local State = {
     autoHack=false, golf=false, autoCuff=false,
 }
 
--- 主循环（stamina/food/infiniteAmmo）
 RunService.Heartbeat:Connect(function()
     if CoreModule then
         if State.stamina then pcall(function() CoreModule.stamina = 100 end) end
@@ -125,7 +122,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 快速射击
 local function ModifyWeaponStats()
     if not State.rapidFire or not getgc then return end
     for _, tbl in pairs(getgc(true)) do
@@ -136,7 +132,6 @@ local function ModifyWeaponStats()
     end
 end
 
--- 战斗拦截
 local oldCombatNamecall
 local function setCombatBlock(enabled)
     State.combatBlock = enabled
@@ -144,15 +139,12 @@ local function setCombatBlock(enabled)
         oldCombatNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
             local args = {...}
             local method = getnamecallmethod()
-            if State.combatBlock and method == "FireServer" and args[1] == "combatMode" then
-                return nil
-            end
+            if State.combatBlock and method == "FireServer" and args[1] == "combatMode" then return nil end
             return oldCombatNamecall(self, ...)
         end))
     end
 end
 
--- 防摔伤
 pcall(function()
     local mt = getrawmetatable(game)
     if not mt then return end
@@ -161,15 +153,12 @@ pcall(function()
     mt.__namecall = newcclosure(function(self, ...)
         local args = {...}
         local method = getnamecallmethod()
-        if State.noFallDamage and method == "FireServer" and tostring(self) == "PlayerEvent" and args[1] == "takeDamage" then
-            return nil
-        end
+        if State.noFallDamage and method == "FireServer" and tostring(self) == "PlayerEvent" and args[1] == "takeDamage" then return nil end
         return oldDamageNamecall(self, ...)
     end)
     setreadonly(mt, true)
 end)
 
--- 防布娃娃
 pcall(function()
     local Ragdoll = require(ReplicatedStorage.Modules.Ragdoll)
     local orig = Ragdoll.activate
@@ -186,7 +175,6 @@ pcall(function()
     end
 end)
 
--- 防越狱拉回
 local originalCharPivotTo, originalNotify
 local function setAntiPrisonPull(enabled)
     State.antiPrisonPull = enabled
@@ -205,9 +193,7 @@ local function setAntiPrisonPull(enabled)
         if enabled and not originalNotify then
             originalNotify = CoreModule.notify
             CoreModule.notify = function(config)
-                if config and config.message and string.find(config.message, "You can't leave prison yet") then
-                    return nil
-                end
+                if config and config.message and string.find(config.message, "You can't leave prison yet") then return nil end
                 return originalNotify(config)
             end
         elseif not enabled and originalNotify then
@@ -217,7 +203,6 @@ local function setAntiPrisonPull(enabled)
     end)
 end
 
--- Ghost Mode (隐身)
 local ghostRender
 local function setGhostVisuals(character, enabled)
     if not character then return end
@@ -244,12 +229,8 @@ local function setGhostMode(enabled)
             local target = locations and locations:GetChildren()[1] or nil
             if PlayerFunc then PlayerFunc:InvokeServer("hideCharacterLocation", target) end
         end)
-        if InventoryModule and InventoryModule.canEquipSlot then
-            pcall(function() InventoryModule.canEquipSlot(true) end)
-        end
-        if CharacterModule and CharacterModule.lockHumanoidState then
-            pcall(function() CharacterModule.lockHumanoidState("ghostMode", nil) end)
-        end
+        if InventoryModule and InventoryModule.canEquipSlot then pcall(function() InventoryModule.canEquipSlot(true) end) end
+        if CharacterModule and CharacterModule.lockHumanoidState then pcall(function() CharacterModule.lockHumanoidState("ghostMode", nil) end) end
         pcall(function()
             GuiService.TouchControlsEnabled = true
             ContextAction:UnbindAction("LoadingGuiNoResetOnDeath")
@@ -258,20 +239,15 @@ local function setGhostMode(enabled)
         setGhostVisuals(character, true)
         if ghostRender then ghostRender:Disconnect() end
         ghostRender = RunService.RenderStepped:Connect(function()
-            if State.ghost and LocalPlayer.Character then
-                setGhostVisuals(LocalPlayer.Character, true)
-            end
+            if State.ghost and LocalPlayer.Character then setGhostVisuals(LocalPlayer.Character, true) end
         end)
     else
         if ghostRender then ghostRender:Disconnect(); ghostRender = nil end
-        pcall(function()
-            if PlayerFunc then PlayerFunc:InvokeServer("hideCharacterLocation", false) end
-        end)
+        pcall(function() if PlayerFunc then PlayerFunc:InvokeServer("hideCharacterLocation", false) end end)
         setGhostVisuals(character, false)
     end
 end
 
--- 自动捡钱
 local function getPromptPosition(prompt)
     if not prompt or not prompt.Parent then return end
     local parent = prompt.Parent
@@ -319,17 +295,12 @@ task.spawn(function()
                         local pos = getPromptPosition(obj)
                         if pos then
                             local dist = (root.Position - pos).Magnitude
-                            if not bestDist or dist < bestDist then
-                                bestDist = dist; bestPrompt = obj
-                            end
+                            if not bestDist or dist < bestDist then bestDist = dist; bestPrompt = obj end
                         end
                     end
                 end
                 if bestPrompt and bestDist and bestDist < 60 then
-                    if bestDist > 8 then
-                        teleportTo(getPromptPosition(bestPrompt))
-                        task.wait(0.3)
-                    end
+                    if bestDist > 8 then teleportTo(getPromptPosition(bestPrompt)); task.wait(0.3) end
                     firePrompt(bestPrompt)
                 end
             end
@@ -338,7 +309,6 @@ task.spawn(function()
     end
 end)
 
--- Money 配置
 local MoneyConfig = { missionInterval=2, priorityHighReward=false, taxiSafe=false, taxiDelayMode="随机时间", taxiOrigin=nil }
 local function getTeamJobs()
     if not getgc then return end
@@ -349,9 +319,7 @@ end
 local function hasActiveMission()
     if LocalPlayer:GetAttribute("Mission") then return true end
     local jobs = getTeamJobs()
-    if jobs then
-        for _, job in pairs(jobs) do if job.joined then return true end end
-    end
+    if jobs then for _, job in pairs(jobs) do if job.joined then return true end end end
     return false
 end
 local function getBestMission()
@@ -371,17 +339,12 @@ task.spawn(function()
     while true do
         if State.autoMission and PlayerFunc and not hasActiveMission() then
             local id = getBestMission()
-            if id then
-                pcall(function()
-                    PlayerFunc:InvokeServer("talkToMission", tostring(id) .. "join")
-                end)
-            end
+            if id then pcall(function() PlayerFunc:InvokeServer("talkToMission", tostring(id) .. "join") end) end
         end
         task.wait(MoneyConfig.missionInterval)
     end
 end)
 
--- Farmer
 local function getFarmerDropOff()
     local gameplay = ReplicatedStorage:FindFirstChild("Gameplay")
     local missions = gameplay and gameplay:FindFirstChild("Missions")
@@ -422,7 +385,6 @@ task.spawn(function()
     end
 end)
 
--- Taxi
 task.spawn(function()
     local lastTargetPos
     while true do
@@ -459,7 +421,6 @@ task.spawn(function()
     end
 end)
 
--- Bus
 local function getBusArea()
     local gameplay = Workspace:FindFirstChild("Gameplay")
     local entities = gameplay and gameplay:FindFirstChild("Entities")
@@ -491,7 +452,6 @@ task.spawn(function()
     end
 end)
 
--- AutoHack
 local autoHackOriginal = {}
 local function setAutoHack(enabled)
     State.autoHack = enabled
@@ -514,7 +474,6 @@ local function setAutoHack(enabled)
     end)
 end
 
--- Golf
 task.spawn(function()
     local function findPath(parts)
         local obj = Workspace
@@ -544,7 +503,6 @@ task.spawn(function()
     end
 end)
 
--- 通用工具
 local function targetAllowed(player, onlyPolice, onlyCivilian)
     if not player or player == LocalPlayer then return false end
     if onlyPolice then return player.Team and player.Team.Name == "Police" end
@@ -556,11 +514,9 @@ local function inCombat(player, enabled)
     return player:GetAttribute("CombatMode") == true or player:GetAttribute("Pursuit") == true
 end
 
--- 杀戮光环
 local CombatConfig = {
-    auraEnabled=false, auraRange=50, auraDamage=5, auraInterval=0.05,
-    auraMaxTargets=5, auraOnlyPolice=false, auraOnlyCivilian=false,
-    auraCombatCheck=false, auraBeam=false,
+    auraEnabled=false, auraRange=50, auraDamage=5, auraInterval=0.05, auraMaxTargets=5,
+    auraOnlyPolice=false, auraOnlyCivilian=false, auraCombatCheck=false,
 }
 local auraLast = 0
 RunService.Heartbeat:Connect(function()
@@ -576,9 +532,7 @@ RunService.Heartbeat:Connect(function()
             local _, _, root = GetCharacter(player)
             if root then
                 local dist = (root.Position - myRoot.Position).Magnitude
-                if dist <= CombatConfig.auraRange then
-                    table.insert(targets, { player=player, root=root, dist=dist })
-                end
+                if dist <= CombatConfig.auraRange then table.insert(targets, { player=player, root=root, dist=dist }) end
             end
         end
     end
@@ -590,34 +544,26 @@ RunService.Heartbeat:Connect(function()
         local t = targets[i]
         pcall(function()
             PlayerEvent:FireServer("damage", {
-                bodyParts={{ "Head", 1 }},
-                shotCode={myPos, (t.root.Position - myPos).Unit},
-                pos=t.root.Position, target=t.player,
-                damageFactor=CombatConfig.auraDamage, bulletProofTool=false,
+                bodyParts={{ "Head", 1 }}, shotCode={myPos, (t.root.Position - myPos).Unit},
+                pos=t.root.Position, target=t.player, damageFactor=CombatConfig.auraDamage, bulletProofTool=false,
             })
         end)
     end
     auraLast = now
 end)
 
--- 自瞄
 local AimConfig = {
     enabled=false, prediction=false, teamCheck=false, wallCheck=false,
     showFov=false, showCrosshair=false, showTracer=false, friendCheck=false,
     onlyPolice=false, onlyCivilian=false, combatCheck=false,
-    fov=50, smoothness=1, targetMode="准心最近", targetPart="头",
-    color="红色", fovThickness=2,
+    fov=50, smoothness=1, targetMode="准心最近", targetPart="头", color="红色", fovThickness=2,
 }
 local PartMap = {
-    ["头"] = { "Head" },
-    ["胸"] = { "UpperTorso", "Torso" },
-    ["左手"] = { "LeftHand", "Left Arm" },
-    ["右手"] = { "RightHand", "Right Arm" },
-    ["左腿"] = { "LeftFoot", "Left Leg" },
-    ["右腿"] = { "RightFoot", "Right Leg" },
+    ["头"]={"Head"}, ["胸"]={"UpperTorso","Torso"}, ["左手"]={"LeftHand","Left Arm"},
+    ["右手"]={"RightHand","Right Arm"}, ["左腿"]={"LeftFoot","Left Leg"}, ["右腿"]={"RightFoot","Right Leg"},
 }
 local function aimTargetPart(char)
-    for _, name in ipairs(PartMap[AimConfig.targetPart] or { "Head" }) do
+    for _, name in ipairs(PartMap[AimConfig.targetPart] or {"Head"}) do
         local part = char:FindFirstChild(name)
         if part then return part end
     end
@@ -654,11 +600,8 @@ local function getBestAimTarget()
                         if AimConfig.targetMode == "距离最近" then
                             local _, _, myRoot = GetCharacter(LocalPlayer)
                             score = myRoot and (myRoot.Position - root.Position).Magnitude or math.huge
-                        elseif AimConfig.targetMode == "血量最低" then
-                            score = hum.Health
-                        else
-                            score = fov
-                        end
+                        elseif AimConfig.targetMode == "血量最低" then score = hum.Health
+                        else score = fov end
                         if not bestValue or score < bestValue then
                             bestValue = score
                             best = { player=player, part=part, screen=screen }
@@ -680,10 +623,8 @@ RunService.RenderStepped:Connect(function(dt)
     if not camera then return end
     local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
     local color = GetColor(AimConfig.color)
-    AimFOV.Position = center
-    AimFOV.Radius = AimConfig.fov
-    AimFOV.Thickness = AimConfig.fovThickness
-    AimFOV.Color = color
+    AimFOV.Position = center; AimFOV.Radius = AimConfig.fov
+    AimFOV.Thickness = AimConfig.fovThickness; AimFOV.Color = color
     AimFOV.Visible = AimConfig.enabled and AimConfig.showFov
     local gap, size = 5, 15
     AimCrosshair.Top.From = Vector2.new(center.X, center.Y - gap)
@@ -704,22 +645,16 @@ RunService.RenderStepped:Connect(function(dt)
             if AimConfig.showTracer then
                 AimTracer.From = center
                 AimTracer.To = Vector2.new(target.screen.X, target.screen.Y)
-                AimTracer.Color = color
-                AimTracer.Thickness = 2
-                AimTracer.Transparency = 0.5
-                AimTracer.Visible = true
+                AimTracer.Color = color; AimTracer.Thickness = 2; AimTracer.Transparency = 0.5; AimTracer.Visible = true
             end
             local targetPos = target.part.Position
-            if AimConfig.prediction then
-                targetPos = targetPos + target.part.AssemblyLinearVelocity * dt * 1.5
-            end
+            if AimConfig.prediction then targetPos = targetPos + target.part.AssemblyLinearVelocity * dt * 1.5 end
             local targetCF = CFrame.new(camera.CFrame.Position, targetPos)
             camera.CFrame = AimConfig.smoothness >= 1 and targetCF or camera.CFrame:Lerp(targetCF, AimConfig.smoothness)
         end
     end
 end)
 
--- Ragebot
 local RageConfig = { enabled=false, range=150, interval=0.05, bodyPart="Head", jobCheck=false, wallCheck=false, aliveCheck=false, combatCheck=false, policeLock=false, civilianLock=false, beam=false }
 local RageBodyParts = { ["头部"]="Head", ["躯干"]="Torso", ["左臂"]="LeftArm", ["右臂"]="RightArm", ["左腿"]="LeftLeg", ["右腿"]="RightLeg" }
 local function createBeam(startPos, endPos)
@@ -760,8 +695,7 @@ task.spawn(function()
                                 end
                                 pcall(function()
                                     PlayerEvent:FireServer("damage", {
-                                        bodyParts={{ RageConfig.bodyPart, 1 }},
-                                        shotCode={myPos, (root.Position - myPos).Unit},
+                                        bodyParts={{ RageConfig.bodyPart, 1 }}, shotCode={myPos, (root.Position - myPos).Unit},
                                         pos=root.Position, target=player, damageFactor=1.5, bulletProofTool=false,
                                     })
                                     if RageConfig.beam then createBeam(myPos, root.Position) end
@@ -776,7 +710,6 @@ task.spawn(function()
     end
 end)
 
--- Hitbox
 local HitboxConfig = { active=false, size=10, transparency=0.7, teamCheck=false, color="红色", material="Neon", rainbow=false, checkCorpses=false, outline=false, collision=false, glow=false, pulse=false, affectNPC=false }
 local hitboxOriginal = {}
 local function resetHitbox(char)
@@ -784,11 +717,8 @@ local function resetHitbox(char)
     if not root then return end
     local orig = hitboxOriginal[root]
     if orig then
-        root.Size = orig.Size
-        root.Transparency = orig.Transparency
-        root.Material = orig.Material
-        root.CanCollide = orig.CanCollide
-        root.Color = orig.Color
+        root.Size = orig.Size; root.Transparency = orig.Transparency
+        root.Material = orig.Material; root.CanCollide = orig.CanCollide; root.Color = orig.Color
     end
     local h = root:FindFirstChild("PY_HitboxHighlight"); if h then h:Destroy() end
     local l = root:FindFirstChild("PY_HitboxLight"); if l then l:Destroy() end
@@ -811,19 +741,15 @@ local function applyHitbox(char)
     root.Color = HitboxConfig.rainbow and GetRainbowColor(5) or GetColor(HitboxConfig.color)
     if HitboxConfig.outline then
         local hl = root:FindFirstChild("PY_HitboxHighlight") or Instance.new("Highlight")
-        hl.Name = "PY_HitboxHighlight"
-        hl.FillTransparency = 1
-        hl.OutlineColor = root.Color
-        hl.OutlineTransparency = HitboxConfig.transparency
-        hl.Parent = root
+        hl.Name = "PY_HitboxHighlight"; hl.FillTransparency = 1
+        hl.OutlineColor = root.Color; hl.OutlineTransparency = HitboxConfig.transparency; hl.Parent = root
     else
         local hl = root:FindFirstChild("PY_HitboxHighlight"); if hl then hl:Destroy() end
     end
     if HitboxConfig.glow then
         local light = root:FindFirstChild("PY_HitboxLight") or Instance.new("PointLight")
-        light.Name = "PY_HitboxLight"
-        light.Brightness = 5; light.Range = 15; light.Color = root.Color
-        light.Parent = root
+        light.Name = "PY_HitboxLight"; light.Brightness = 5; light.Range = 15
+        light.Color = root.Color; light.Parent = root
     else
         local light = root:FindFirstChild("PY_HitboxLight"); if light then light:Destroy() end
     end
@@ -847,7 +773,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ESP
 local ESP = {
     enabled=false, name=true, distance=true, health=true, highlight=true, tracer=false,
     tracerOrigin="屏幕底部", showFugitive=true,
@@ -858,7 +783,8 @@ local TeamNames = { Chef="厨师", Civilian="平民", Delivery="配送员", Farm
 local TeamColors = {
     Chef=Color3.fromRGB(255,200,0), Civilian=Color3.fromRGB(100,200,255), Delivery=Color3.fromRGB(255,150,50),
     Farmer=Color3.fromRGB(50,200,50), Fire=Color3.fromRGB(255,50,50), Police=Color3.fromRGB(50,100,255),
-    Medical=Color3.fromRGB(255,50,255), Prisoner=Color3.fromRGB(255,150,150), ["Road Service"]=Color3.fromRGB(255,255,100), Transit=Color3.fromRGB(100,255,255),
+    Medical=Color3.fromRGB(255,50,255), Prisoner=Color3.fromRGB(255,150,150),
+    ["Road Service"]=Color3.fromRGB(255,255,100), Transit=Color3.fromRGB(100,255,255),
 }
 local function isFugitive(player)
     return player.Team and player.Team.Name == "Civilian" and (player:GetAttribute("CombatMode") or player:GetAttribute("Pursuit"))
@@ -889,19 +815,19 @@ local function createESP(player)
     if not root then return end
     local uiParent = UI_PARENT or resolveGuiParent()
     if not uiParent then return end
-
     local bill = Instance.new("BillboardGui")
-    bill.Name = "PlayerESP_" .. player.Name
-    bill.AlwaysOnTop = true; bill.Size = UDim2.new(4,0,4,0); bill.StudsOffset = Vector3.new(0,3,0)
+    bill.Name = "PlayerESP_" .. player.Name; bill.AlwaysOnTop = true
+    bill.Size = UDim2.new(4,0,4,0); bill.StudsOffset = Vector3.new(0,3,0)
     bill.Adornee = root; bill.Parent = uiParent
     local frame = Instance.new("Frame"); frame.BackgroundTransparency = 1; frame.Size = UDim2.fromScale(1,1); frame.Parent = bill
     local nameLbl = Instance.new("TextLabel")
     nameLbl.Size = UDim2.new(1,0,0.5,0); nameLbl.BackgroundTransparency = 1
-    nameLbl.Font = Enum.Font.SourceSansBold; nameLbl.TextSize = 14; nameLbl.TextStrokeTransparency = 0.5; nameLbl.Parent = frame
+    nameLbl.Font = Enum.Font.SourceSansBold; nameLbl.TextSize = 14
+    nameLbl.TextStrokeTransparency = 0.5; nameLbl.Parent = frame
     local infoLbl = Instance.new("TextLabel")
     infoLbl.Size = UDim2.new(1,0,0.5,0); infoLbl.Position = UDim2.new(0,0,0.5,0)
-    infoLbl.BackgroundTransparency = 1; infoLbl.Font = Enum.Font.SourceSans; infoLbl.TextSize = 12
-    infoLbl.TextStrokeTransparency = 0.5; infoLbl.Parent = frame
+    infoLbl.BackgroundTransparency = 1; infoLbl.Font = Enum.Font.SourceSans
+    infoLbl.TextSize = 12; infoLbl.TextStrokeTransparency = 0.5; infoLbl.Parent = frame
     local highlight = Instance.new("Highlight")
     highlight.Name = "PlayerESP_Highlight"; highlight.Adornee = char
     highlight.FillTransparency = 0.7; highlight.OutlineTransparency = 0; highlight.Parent = uiParent
@@ -956,7 +882,6 @@ end)
 Players.PlayerRemoving:Connect(removeESP)
 RunService.Heartbeat:Connect(function() if ESP.enabled then refreshESP() end end)
 
--- 警察
 local PoliceConfig = { range=200, delay=0.5, combatCheck=false, teleport=false }
 local autoCuffThread
 local function startAutoCuff()
@@ -986,9 +911,7 @@ local function startAutoCuff()
                     end
                     if nearest then
                         local _, _, targetRoot = GetCharacter(nearest)
-                        if targetRoot then
-                            myRoot.CFrame = CFrame.new(targetRoot.Position - targetRoot.CFrame.LookVector * 3)
-                        end
+                        if targetRoot then myRoot.CFrame = CFrame.new(targetRoot.Position - targetRoot.CFrame.LookVector * 3) end
                     end
                 end
             end
@@ -998,7 +921,6 @@ local function startAutoCuff()
     end)
 end
 
--- 玩家
 local PlayerConfig = { walkEnabled=false, walkSpeed=200, jumpEnabled=false, jumpPower=50, jumpMultiplier=1, infiniteJump=false, flyEnabled=false, flySpeed=30, flyMode="传送", noclip=false }
 local PlayerRuntime = { walkConn=nil, jumpConn=nil, flyConn=nil, bodyVelocity=nil, bodyGyro=nil, noclipConn=nil, collisionCache={} }
 local PlayerControls = nil
@@ -1059,8 +981,7 @@ local function startWarpFly()
         local vertical = 0
         if UserInput:IsKeyDown(Enum.KeyCode.Space) then vertical = 1
         elseif UserInput:IsKeyDown(Enum.KeyCode.LeftControl) then vertical = -1 end
-        local delta = (direction + Vector3.new(0, vertical, 0)) * PlayerConfig.flySpeed * dt
-        currentRoot.CFrame = currentRoot.CFrame + delta
+        currentRoot.CFrame = currentRoot.CFrame + (direction + Vector3.new(0, vertical, 0)) * PlayerConfig.flySpeed * dt
         currentRoot.AssemblyLinearVelocity = Vector3.zero
         currentRoot.AssemblyAngularVelocity = Vector3.zero
         currentHum:ChangeState(Enum.HumanoidStateType.Climbing)
@@ -1072,7 +993,8 @@ local function startPhysicalFly()
     if not root or not hum then return end
     PlayerConfig.flyEnabled = true
     local bv = Instance.new("BodyVelocity")
-    bv.Name = "PYPlayerFlyVelocity"; bv.MaxForce = Vector3.new(9e9,9e9,9e9); bv.Velocity = Vector3.zero; bv.Parent = root
+    bv.Name = "PYPlayerFlyVelocity"; bv.MaxForce = Vector3.new(9e9,9e9,9e9)
+    bv.Velocity = Vector3.zero; bv.Parent = root
     PlayerRuntime.bodyVelocity = bv
     local bg = Instance.new("BodyGyro")
     bg.Name = "PYPlayerFlyGyro"; bg.MaxTorque = Vector3.new(9e9,9e9,9e9); bg.P = 9e4; bg.Parent = root
@@ -1137,7 +1059,6 @@ LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
--- 速度上限
 local speedLimitEnabled = false
 local originalGetSpeedLimit
 pcall(function()
@@ -1149,7 +1070,6 @@ pcall(function()
     end
 end)
 
--- 载具飞行
 local VehicleFly = { active=false, speed=50, bv=nil, bg=nil, conn=nil }
 local function stopVehicleFly()
     VehicleFly.active = false
@@ -1178,9 +1098,8 @@ local function startVehicleFly()
 end
 
 -- ============================================================
---                      UI 框架
+--                       UI 框架
 -- ============================================================
-
 local C_BG         = Color3.fromRGB(18,18,24)
 local C_NAV        = Color3.fromRGB(24,24,32)
 local C_CARD       = Color3.fromRGB(30,30,40)
@@ -1205,11 +1124,8 @@ local function buildGradient(hueShift, sat, val)
 end
 
 local gui = Instance.new("ScreenGui")
-gui.Name = OLD
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 999
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Name = "RainbowBannerUI"; gui.ResetOnSpawn = false; gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999; gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = pg
 
 local EXPAND_POS  = UDim2.fromScale(0.5, 0.5)
@@ -1221,25 +1137,18 @@ local MAX_SIZE = Vector2.new(1000, 820)
 local NAV_W = 0.24
 
 local panel = Instance.new("Frame")
-panel.Name = "Panel"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = EXPAND_POS
-panel.Size = EXPAND_SIZE
-panel.BackgroundColor3 = C_BG
-panel.BackgroundTransparency = 0.06
-panel.BorderSizePixel = 0
-panel.ClipsDescendants = true
-panel.ZIndex = 1
-panel.Parent = gui
+panel.AnchorPoint = Vector2.new(0.5, 0.5); panel.Position = EXPAND_POS; panel.Size = EXPAND_SIZE
+panel.BackgroundColor3 = C_BG; panel.BackgroundTransparency = 0.06
+panel.BorderSizePixel = 0; panel.ClipsDescendants = true; panel.ZIndex = 1; panel.Parent = gui
 local panelCorner = Instance.new("UICorner"); panelCorner.CornerRadius = UDim.new(0, 18); panelCorner.Parent = panel
 local panelStroke = Instance.new("UIStroke"); panelStroke.Thickness = 1; panelStroke.Transparency = 0.25; panelStroke.Color = C_STROKE; panelStroke.Parent = panel
 local panelGrad = Instance.new("UIGradient"); panelGrad.Color = buildGradient(0, 0.9, 1); panelGrad.Rotation = 8; panelGrad.Parent = panelStroke
 
--- 导航
+-- 左侧导航栏
 local nav = Instance.new("Frame")
 nav.Position = UDim2.fromScale(0,0); nav.Size = UDim2.fromScale(NAV_W, 1)
-nav.BackgroundColor3 = C_NAV; nav.BackgroundTransparency = 0.35; nav.BorderSizePixel = 0; nav.ZIndex = 3
-nav.Parent = panel
+nav.BackgroundColor3 = C_NAV; nav.BackgroundTransparency = 0.35
+nav.BorderSizePixel = 0; nav.ZIndex = 3; nav.Parent = panel
 local navCorner = Instance.new("UICorner"); navCorner.CornerRadius = UDim.new(0, 18); navCorner.Parent = nav
 local navDivider = Instance.new("Frame")
 navDivider.AnchorPoint = Vector2.new(1, 0.5); navDivider.Position = UDim2.new(1, 0, 0.5, 0)
@@ -1251,18 +1160,34 @@ navTitle.BackgroundTransparency = 1; navTitle.Font = Enum.Font.GothamBold
 navTitle.Text = "  NAVIGATION"; navTitle.TextSize = 11; navTitle.TextColor3 = C_TXT_DIM
 navTitle.TextTransparency = 0.25; navTitle.TextXAlignment = Enum.TextXAlignment.Left
 navTitle.ZIndex = 5; navTitle.Parent = nav
-local navList = Instance.new("Frame")
-navList.Position = UDim2.fromScale(0.06, 0.13); navList.Size = UDim2.fromScale(0.88, 0.82)
-navList.BackgroundTransparency = 1; navList.ZIndex = 5; navList.Parent = nav
+
+-- ★ 导航列表：改用 ScrollingFrame 可滚动
+local navList = Instance.new("ScrollingFrame")
+navList.Position = UDim2.fromScale(0.05, 0.13)
+navList.Size = UDim2.fromScale(0.90, 0.83)
+navList.BackgroundTransparency = 1
+navList.BorderSizePixel = 0
+navList.ScrollBarThickness = 2
+navList.ScrollBarImageColor3 = Color3.fromRGB(110, 110, 130)
+navList.ScrollBarImageTransparency = 0.3
+navList.CanvasSize = UDim2.new(0, 0, 0, 0)
+navList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+navList.ScrollingDirection = Enum.ScrollingDirection.Y
+navList.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+navList.ScrollingEnabled = true
+navList.ZIndex = 5
+navList.Parent = nav
+
 local navLayout = Instance.new("UIListLayout")
 navLayout.FillDirection = Enum.FillDirection.Vertical
 navLayout.SortOrder = Enum.SortOrder.LayoutOrder
-navLayout.Padding = UDim.new(0, 3); navLayout.Parent = navList
-local navScroll = Instance.new("ScrollingFrame")
--- 直接用 navList 内容滚动
--- 简化：nav 里再放 ScrollingFrame
--- 实际上按钮数量 10 个*35=350px，面板高 0.72*约 700px ≈ 500px，够用
--- 不改了
+navLayout.Padding = UDim.new(0, 4)   -- 间距 4，不挤
+navLayout.Parent = navList
+
+local navPad = Instance.new("UIPadding")
+navPad.PaddingRight = UDim.new(0, 6)
+navPad.PaddingBottom = UDim.new(0, 6)
+navPad.Parent = navList
 
 -- 内容区
 local content = Instance.new("Frame")
@@ -1293,13 +1218,11 @@ infoPad.PaddingRight = UDim.new(0, 6); infoPad.PaddingBottom = UDim.new(0, 10); 
 local function makeSection(title, order)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, 0, 0, 22)
-    lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.GothamBold
+    lbl.BackgroundTransparency = 1; lbl.Font = Enum.Font.GothamBold
     lbl.Text = title; lbl.TextSize = 11
     lbl.TextColor3 = C_TXT_DIM; lbl.TextTransparency = 0.15
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.LayoutOrder = order; lbl.ZIndex = 6
-    lbl.Parent = infoScroll
+    lbl.LayoutOrder = order; lbl.ZIndex = 6; lbl.Parent = infoScroll
     local p = Instance.new("UIPadding"); p.PaddingLeft = UDim.new(0, 4); p.PaddingTop = UDim.new(0, 8); p.Parent = lbl
     return lbl
 end
@@ -1309,8 +1232,7 @@ local function makeInfoCard(text, order, highlight)
     card.Size = UDim2.new(1, 0, 0, highlight and 40 or 32)
     card.BackgroundColor3 = highlight and C_ITEM_ACT or C_CARD
     card.BackgroundTransparency = highlight and 0.2 or 0.45
-    card.BorderSizePixel = 0; card.LayoutOrder = order; card.ZIndex = 6
-    card.Parent = infoScroll
+    card.BorderSizePixel = 0; card.LayoutOrder = order; card.ZIndex = 6; card.Parent = infoScroll
     local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = card
     local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = highlight and 0.5 or 0.85; s.Color = C_STROKE; s.Parent = card
     local lbl = Instance.new("TextLabel")
@@ -1319,28 +1241,8 @@ local function makeInfoCard(text, order, highlight)
     lbl.Text = text; lbl.TextSize = highlight and 15 or 13
     lbl.TextColor3 = highlight and C_TXT or C_TXT_DIM
     lbl.TextTransparency = highlight and 0.05 or 0.15
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.ZIndex = 7; lbl.Parent = card
+    lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.ZIndex = 7; lbl.Parent = card
     return card
-end
-
-local function makeButton(text, order, onClick)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 36)
-    btn.BackgroundColor3 = C_ITEM; btn.BackgroundTransparency = 0.4
-    btn.BorderSizePixel = 0; btn.AutoButtonColor = false
-    btn.Font = Enum.Font.GothamMedium; btn.Text = text
-    btn.TextSize = 13; btn.TextColor3 = C_TXT; btn.TextTransparency = 0.1
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.LayoutOrder = order; btn.ZIndex = 6
-    btn.Parent = infoScroll
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
-    local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
-    local p = Instance.new("UIPadding"); p.PaddingLeft = UDim.new(0, 12); p.Parent = btn
-    btn.MouseEnter:Connect(function() TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM_HOVER, BackgroundTransparency = 0.25 }):Play() end)
-    btn.MouseLeave:Connect(function() TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4 }):Play() end)
-    if onClick then btn.MouseButton1Click:Connect(onClick) end
-    return btn
 end
 
 local function makeToggle(text, order, default, onChanged)
@@ -1348,8 +1250,7 @@ local function makeToggle(text, order, default, onChanged)
     row.Size = UDim2.new(1, 0, 0, 40)
     row.BackgroundColor3 = C_ITEM; row.BackgroundTransparency = 0.4
     row.BorderSizePixel = 0; row.AutoButtonColor = false
-    row.Text = ""; row.LayoutOrder = order; row.ZIndex = 6
-    row.Parent = infoScroll
+    row.Text = ""; row.LayoutOrder = order; row.ZIndex = 6; row.Parent = infoScroll
     local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
     local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.75; rs.Color = C_STROKE; rs.Parent = row
     local label = Instance.new("TextLabel")
@@ -1385,8 +1286,7 @@ local function makeToggle(text, order, default, onChanged)
     row.MouseLeave:Connect(function() TweenService:Create(row, TweenInfo.new(0.15), { BackgroundTransparency = 0.4 }):Play() end)
     row.MouseButton1Click:Connect(function()
         local on = not row:GetAttribute("On")
-        row:SetAttribute("On", on)
-        setState(on, true)
+        row:SetAttribute("On", on); setState(on, true)
         if onChanged then onChanged(on) end
     end)
     return row
@@ -1396,8 +1296,7 @@ local function makeSlider(text, order, minV, maxV, default, step, onChanged)
     local wrap = Instance.new("Frame")
     wrap.Name = "SliderWrap"; wrap.Size = UDim2.new(1, 0, 0, 54)
     wrap.BackgroundColor3 = C_ITEM; wrap.BackgroundTransparency = 0.4
-    wrap.BorderSizePixel = 0; wrap.LayoutOrder = order; wrap.ZIndex = 6
-    wrap.Parent = infoScroll
+    wrap.BorderSizePixel = 0; wrap.LayoutOrder = order; wrap.ZIndex = 6; wrap.Parent = infoScroll
     local wc = Instance.new("UICorner"); wc.CornerRadius = UDim.new(0, 8); wc.Parent = wrap
     local ws = Instance.new("UIStroke"); ws.Thickness = 1; ws.Transparency = 0.75; ws.Color = C_STROKE; ws.Parent = wrap
     local label = Instance.new("TextLabel")
@@ -1427,14 +1326,11 @@ local function makeSlider(text, order, minV, maxV, default, step, onChanged)
     knob.Size = UDim2.new(0, 16, 0, 16); knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
     knob.BorderSizePixel = 0; knob.ZIndex = 9; knob.Parent = track
     local kc = Instance.new("UICorner"); kc.CornerRadius = UDim.new(1, 0); kc.Parent = knob
-    local kStroke = Instance.new("UIStroke"); kStroke.Thickness = 1; kStroke.Transparency = 0.3; kStroke.Color = C_STROKE; kStroke.Parent = knob
     local function formatVal(v)
         if step and step < 1 then return string.format("%.2f", v) end
         return tostring(math.floor(v))
     end
-    local value = default
     local function apply(v)
-        value = v
         local ratio = (maxV > minV) and (v - minV) / (maxV - minV) or 0
         fill.Size = UDim2.new(ratio, 0, 1, 0)
         knob.Position = UDim2.new(ratio, 0, 0.5, 0)
@@ -1443,9 +1339,8 @@ local function makeSlider(text, order, minV, maxV, default, step, onChanged)
     local function setValueFromX(x)
         local absTrack = track.AbsolutePosition
         local absSize = track.AbsoluteSize
-        local leftPad, rightPad = 8, 8
-        local contentX = absTrack.X + leftPad
-        local contentW = math.max(absSize.X - leftPad - rightPad, 1)
+        local contentX = absTrack.X + 8
+        local contentW = math.max(absSize.X - 16, 1)
         local ratio = math.clamp((x - contentX) / contentW, 0, 1)
         local v = minV + (maxV - minV) * ratio
         if step and step > 0 then v = math.floor(v / step + 0.5) * step end
@@ -1458,15 +1353,13 @@ local function makeSlider(text, order, minV, maxV, default, step, onChanged)
     local conns = {}
     knob.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingSlider = true
-            infoScroll.ScrollingEnabled = false
+            draggingSlider = true; infoScroll.ScrollingEnabled = false
         end
     end)
     track.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             setValueFromX(input.Position.X)
-            draggingSlider = true
-            infoScroll.ScrollingEnabled = false
+            draggingSlider = true; infoScroll.ScrollingEnabled = false
         end
     end)
     table.insert(conns, UserInput.InputChanged:Connect(function(input)
@@ -1489,8 +1382,7 @@ local function makeCycle(text, order, options, default, onChanged)
     row.Size = UDim2.new(1, 0, 0, 40)
     row.BackgroundColor3 = C_ITEM; row.BackgroundTransparency = 0.4
     row.BorderSizePixel = 0; row.AutoButtonColor = false
-    row.Text = ""; row.LayoutOrder = order; row.ZIndex = 6
-    row.Parent = infoScroll
+    row.Text = ""; row.LayoutOrder = order; row.ZIndex = 6; row.Parent = infoScroll
     local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
     local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.75; rs.Color = C_STROKE; rs.Parent = row
     local label = Instance.new("TextLabel")
@@ -1514,74 +1406,34 @@ local function makeCycle(text, order, options, default, onChanged)
         local idx = 1
         for i, v in ipairs(options) do if v == current then idx = i; break end end
         idx = idx % #options + 1
-        current = options[idx]
-        render()
+        current = options[idx]; render()
         if onChanged then onChanged(current) end
     end)
     return row
 end
 
-local function makeInput(text, order, default, onChanged)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, 0, 0, 40)
-    row.BackgroundColor3 = C_ITEM; row.BackgroundTransparency = 0.4
-    row.BorderSizePixel = 0; row.LayoutOrder = order; row.ZIndex = 6
-    row.Parent = infoScroll
-    local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
-    local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.75; rs.Color = C_STROKE; rs.Parent = row
-    local label = Instance.new("TextLabel")
-    label.Position = UDim2.new(0, 12, 0, 0); label.Size = UDim2.new(0.5, 0, 1, 0)
-    label.BackgroundTransparency = 1; label.Font = Enum.Font.GothamMedium
-    label.Text = text; label.TextSize = 14; label.TextColor3 = C_TXT
-    label.TextTransparency = 0.1; label.TextXAlignment = Enum.TextXAlignment.Left
-    label.ZIndex = 7; label.Parent = row
-    local box = Instance.new("TextBox")
-    box.AnchorPoint = Vector2.new(1, 0.5); box.Position = UDim2.new(1, -12, 0.5, 0)
-    box.Size = UDim2.new(0, 100, 0, 26); box.BackgroundColor3 = Color3.fromRGB(22,22,30)
-    box.BackgroundTransparency = 0.3; box.BorderSizePixel = 0
-    box.Font = Enum.Font.GothamMedium; box.TextSize = 13; box.TextColor3 = C_TXT
-    box.PlaceholderText = "输入..."
-    box.Text = tostring(default); box.ClearTextOnFocus = false
-    box.TextXAlignment = Enum.TextXAlignment.Center
-    box.ZIndex = 7; box.Parent = row
-    local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(0, 6); bc.Parent = box
-    local bs = Instance.new("UIStroke"); bs.Thickness = 1; bs.Transparency = 0.6; bs.Color = C_STROKE; bs.Parent = box
-    box.FocusLost:Connect(function()
-        local v = tonumber(box.Text)
-        if v then
-            if onChanged then onChanged(v) end
-        else
-            box.Text = tostring(default)
-        end
-    end)
-    return row
-end
-
--- 导航项
 local activeItem = nil
 local navItems = {}
 local function setActive(item)
     if activeItem == item then return end
     if activeItem then
         TweenService:Create(activeItem, TweenInfo.new(0.18), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4, TextColor3 = C_TXT_DIM, TextTransparency = 0.25 }):Play()
-        local s = activeItem:FindFirstChildOfClass("UIStroke")
-        if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.75 }):Play() end
+        local s = activeItem:FindFirstChildOfClass("UIStroke"); if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.75 }):Play() end
     end
     activeItem = item
     TweenService:Create(item, TweenInfo.new(0.18), { BackgroundColor3 = C_ITEM_ACT, BackgroundTransparency = 0.15, TextColor3 = C_TXT, TextTransparency = 0 }):Play()
-    local s = item:FindFirstChildOfClass("UIStroke")
-    if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.45 }):Play() end
+    local s = item:FindFirstChildOfClass("UIStroke"); if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.45 }):Play() end
 end
 local function makeNavItem(label, order, onClick)
     local btn = Instance.new("TextButton")
-    btn.Name = label; btn.Size = UDim2.new(1, 0, 0, 28)
+    btn.Name = label; btn.Size = UDim2.new(1, 0, 0, 32)   -- ★ 恢复 32px
     btn.BackgroundColor3 = C_ITEM; btn.BackgroundTransparency = 0.4
     btn.BorderSizePixel = 0; btn.AutoButtonColor = false
     btn.Font = Enum.Font.GothamMedium; btn.Text = "  " .. label
-    btn.TextSize = 13; btn.TextColor3 = C_TXT_DIM; btn.TextTransparency = 0.25
+    btn.TextSize = 14; btn.TextColor3 = C_TXT_DIM; btn.TextTransparency = 0.25
     btn.TextXAlignment = Enum.TextXAlignment.Left; btn.LayoutOrder = order
     btn.ZIndex = 6; btn.Parent = navList
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = btn
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn   -- ★ 恢复 8px 圆角
     local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
     btn.MouseEnter:Connect(function()
         if activeItem == btn then return end
@@ -1592,8 +1444,7 @@ local function makeNavItem(label, order, onClick)
         TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4, TextColor3 = C_TXT_DIM, TextTransparency = 0.25 }):Play()
     end)
     btn.MouseButton1Click:Connect(function()
-        setActive(btn)
-        if onClick then onClick() end
+        setActive(btn); if onClick then onClick() end
     end)
     table.insert(navItems, btn)
     return btn
@@ -1605,13 +1456,9 @@ local function clearContent()
     end
 end
 
--- ============================================================
---                      各页面
--- ============================================================
-
+-- ============ 各页面 ============
 local function pageAnnounce()
-    contentTitle.Text = "公告"
-    clearContent()
+    contentTitle.Text = "公告"; clearContent()
     local i = 0
     i=i+1; makeSection("项目信息", i)
     i=i+1; makeInfoCard("Pinms 圣奥里项目「ice」内测", i, true)
@@ -1629,8 +1476,7 @@ local function pageAnnounce()
 end
 
 local function pageMain()
-    contentTitle.Text = "主要功能"
-    clearContent()
+    contentTitle.Text = "主要功能"; clearContent()
     local i = 0
     i=i+1; makeSection("状态", i)
     i=i+1; makeToggle("无限体力", i, State.stamina, function(on) State.stamina = on end)
@@ -1648,8 +1494,7 @@ local function pageMain()
 end
 
 local function pageMoney()
-    contentTitle.Text = "刷钱"
-    clearContent()
+    contentTitle.Text = "刷钱"; clearContent()
     local i = 0
     i=i+1; makeSection("任务", i)
     i=i+1; makeToggle("自动接取任务", i, State.autoMission, function(on) State.autoMission = on end)
@@ -1659,10 +1504,7 @@ local function pageMoney()
     i=i+1; makeToggle("出租车刷钱", i, State.taxi, function(on) State.taxi = on end)
     i=i+1; makeToggle("安全模式（出租车）", i, MoneyConfig.taxiSafe, function(on)
         MoneyConfig.taxiSafe = on
-        if on then
-            local _, _, root = GetCharacter(LocalPlayer)
-            if root then MoneyConfig.taxiOrigin = root.Position end
-        end
+        if on then local _, _, root = GetCharacter(LocalPlayer); if root then MoneyConfig.taxiOrigin = root.Position end end
     end)
     i=i+1; makeCycle("出租车延迟模式", i, {"随机时间","距离测算"}, MoneyConfig.taxiDelayMode, function(v) MoneyConfig.taxiDelayMode = v end)
     i=i+1; makeSection("其他", i)
@@ -1673,8 +1515,7 @@ local function pageMoney()
 end
 
 local function pageCombat()
-    contentTitle.Text = "杀戮光环"
-    clearContent()
+    contentTitle.Text = "杀戮光环"; clearContent()
     local i = 0
     i=i+1; makeSection("开关", i)
     i=i+1; makeToggle("开启杀戮光环", i, CombatConfig.auraEnabled, function(on) CombatConfig.auraEnabled = on end)
@@ -1689,8 +1530,7 @@ local function pageCombat()
 end
 
 local function pageAim()
-    contentTitle.Text = "自瞄"
-    clearContent()
+    contentTitle.Text = "自瞄"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("开启自瞄", i, AimConfig.enabled, function(on) AimConfig.enabled = on end)
@@ -1717,8 +1557,7 @@ local function pageAim()
 end
 
 local function pageRage()
-    contentTitle.Text = "Ragebot"
-    clearContent()
+    contentTitle.Text = "Ragebot"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("开启 Ragebot", i, RageConfig.enabled, function(on) RageConfig.enabled = on end)
@@ -1738,24 +1577,18 @@ local function pageRage()
 end
 
 local function pageHitbox()
-    contentTitle.Text = "范围"
-    clearContent()
+    contentTitle.Text = "范围"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("开启范围", i, HitboxConfig.active, function(on)
         HitboxConfig.active = on
-        if not on then
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p.Character then resetHitbox(p.Character) end
-            end
-        end
+        if not on then for _, p in ipairs(Players:GetPlayers()) do if p.Character then resetHitbox(p.Character) end end end
     end)
     i=i+1; makeSection("外观", i)
     i=i+1; makeSlider("范围大小", i, 1, 50, HitboxConfig.size, 1, function(v) HitboxConfig.size = v end)
     i=i+1; makeSlider("范围透明度", i, 0, 1, HitboxConfig.transparency, 0.05, function(v) HitboxConfig.transparency = v end)
     i=i+1; makeCycle("范围颜色", i, {"红色","蓝色","黄色","绿色","青色","橙色","紫色","白色","黑色","彩虹色"}, HitboxConfig.color, function(v)
-        HitboxConfig.color = v
-        HitboxConfig.rainbow = (v == "彩虹色")
+        HitboxConfig.color = v; HitboxConfig.rainbow = (v == "彩虹色")
     end)
     i=i+1; makeCycle("范围材质", i, {"Neon","Plastic","Wood","Slate","Concrete","Metal","SmoothPlastic"}, HitboxConfig.material, function(v) HitboxConfig.material = v end)
     i=i+1; makeToggle("显示轮廓", i, HitboxConfig.outline, function(on) HitboxConfig.outline = on end)
@@ -1769,8 +1602,7 @@ local function pageHitbox()
 end
 
 local function pagePlayer()
-    contentTitle.Text = "玩家"
-    clearContent()
+    contentTitle.Text = "玩家"; clearContent()
     local i = 0
     i=i+1; makeSection("移动速度", i)
     i=i+1; makeToggle("开启自定义速度", i, PlayerConfig.walkEnabled, function(on) PlayerConfig.walkEnabled = on; startWalkLoop() end)
@@ -1781,7 +1613,10 @@ local function pagePlayer()
     i=i+1; makeSlider("跳跃倍数", i, 1, 10, PlayerConfig.jumpMultiplier, 1, function(v) PlayerConfig.jumpMultiplier = v end)
     i=i+1; makeToggle("无限跳跃", i, PlayerConfig.infiniteJump, function(on) PlayerConfig.infiniteJump = on end)
     i=i+1; makeSection("飞行", i)
-    i=i+1; makeToggle("开启飞行", i, PlayerConfig.flyEnabled, function(on) if on then startPlayerFly() else stopPlayerFly() end end)
+    i=i+1; makeToggle("开启飞行", i, PlayerConfig.flyEnabled, function(on)
+        PlayerConfig.flyEnabled = on
+        if on then startPlayerFly() else stopPlayerFly() end
+    end)
     i=i+1; makeCycle("飞行模式", i, {"传送","物理"}, PlayerConfig.flyMode, function(v) PlayerConfig.flyMode = v end)
     i=i+1; makeSlider("飞行速度", i, 5, 200, PlayerConfig.flySpeed, 5, function(v) PlayerConfig.flySpeed = v end)
     i=i+1; makeSection("其他", i)
@@ -1791,8 +1626,7 @@ local function pagePlayer()
 end
 
 local function pagePolice()
-    contentTitle.Text = "警察功能"
-    clearContent()
+    contentTitle.Text = "警察功能"; clearContent()
     local i = 0
     i=i+1; makeSection("开关", i)
     i=i+1; makeToggle("自动铐", i, State.autoCuff, function(on) State.autoCuff = on; if on then startAutoCuff() end end)
@@ -1804,8 +1638,7 @@ local function pagePolice()
 end
 
 local function pageESP()
-    contentTitle.Text = "ESP"
-    clearContent()
+    contentTitle.Text = "ESP"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("透视总开关", i, ESP.enabled, function(on)
@@ -1833,7 +1666,6 @@ local function pageESP()
     i=i+1; makeToggle("交通透视", i, ESP.selectedTeams.Transit, function(on) ESP.selectedTeams.Transit = on; refreshESP() end)
 end
 
--- 导航
 makeNavItem("公告", 1, pageAnnounce)
 makeNavItem("主要", 2, pageMain)
 makeNavItem("刷钱", 3, pageMoney)
@@ -1847,9 +1679,8 @@ makeNavItem("ESP", 10, pageESP)
 setActive(navList:FindFirstChild("公告"))
 pageAnnounce()
 
--- 最小化 & 拖拽
+-- ============ 最小化 / 拖拽 ============
 local minBtn = Instance.new("TextButton")
-minBtn.Name = "Minimize"
 minBtn.AnchorPoint = Vector2.new(1, 0); minBtn.Position = UDim2.new(1, -10, 0, 10)
 minBtn.Size = UDim2.new(0, 26, 0, 26); minBtn.BackgroundColor3 = C_ITEM
 minBtn.BackgroundTransparency = 0.25; minBtn.BorderSizePixel = 0; minBtn.AutoButtonColor = false
@@ -1965,4 +1796,4 @@ gui.Destroying:Connect(function()
     if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
 end)
 
-print("RainbowBannerUI · 全功能整合 已加载")
+print("RainbowBannerUI · 导航滚动版 已加载")
