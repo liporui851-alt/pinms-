@@ -1,9 +1,5 @@
 --[[
-    RainbowBannerUI · PYHUB 全功能整合版 + Pinms 水印
-    · 左侧导航 10 页（可滚动）
-    · 真正的 Toggle / Slider / Cycle / InfoCard
-    · 收起为顶部灵动岛，展开后内容原样保留
-    · 全屏 Pinms 平铺水印（独立 ScreenGui）
+    RainbowBannerUI · PYHUB 全功能整合版 + Pinms 水印 + ESP 2D 彩虹边框
 --]]
 
 local Players           = game:GetService("Players")
@@ -775,12 +771,18 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- ============ ESP（含 2D 彩虹边框）============
 local ESP = {
     enabled=false, name=true, distance=true, health=true, highlight=true, tracer=false,
+    border=true,
     tracerOrigin="屏幕底部", showFugitive=true,
     selectedTeams={ Chef=true, Civilian=true, Delivery=true, Farmer=true, Fire=true, Police=true, Medical=true, Prisoner=true, ["Road Service"]=true, Transit=true },
     trackers={},
 }
+
+-- 主渐变循环每帧同步
+local ESP_RainbowColor = Color3.fromRGB(255, 255, 255)
+
 local TeamNames = { Chef="厨师", Civilian="平民", Delivery="配送员", Farmer="农民", Fire="消防员", Police="警察", Medical="医护人员", Prisoner="囚犯", ["Road Service"]="道路服务", Transit="交通" }
 local TeamColors = {
     Chef=Color3.fromRGB(255,200,0), Civilian=Color3.fromRGB(100,200,255), Delivery=Color3.fromRGB(255,150,50),
@@ -817,58 +819,157 @@ local function createESP(player)
     if not root then return end
     local uiParent = UI_PARENT or resolveGuiParent()
     if not uiParent then return end
+
+    -- 名字 / 信息
     local bill = Instance.new("BillboardGui")
-    bill.Name = "PlayerESP_" .. player.Name; bill.AlwaysOnTop = true
-    bill.Size = UDim2.new(4,0,4,0); bill.StudsOffset = Vector3.new(0,3,0)
-    bill.Adornee = root; bill.Parent = uiParent
-    local frame = Instance.new("Frame"); frame.BackgroundTransparency = 1; frame.Size = UDim2.fromScale(1,1); frame.Parent = bill
+    bill.Name = "PlayerESP_" .. player.Name
+    bill.AlwaysOnTop = true
+    bill.Size = UDim2.new(4,0,4,0)
+    bill.StudsOffset = Vector3.new(0,3,0)
+    bill.Adornee = root
+    bill.Parent = uiParent
+
+    local frame = Instance.new("Frame")
+    frame.BackgroundTransparency = 1
+    frame.Size = UDim2.fromScale(1,1)
+    frame.Parent = bill
+
     local nameLbl = Instance.new("TextLabel")
-    nameLbl.Size = UDim2.new(1,0,0.5,0); nameLbl.BackgroundTransparency = 1
-    nameLbl.Font = Enum.Font.SourceSansBold; nameLbl.TextSize = 14
-    nameLbl.TextStrokeTransparency = 0.5; nameLbl.Parent = frame
+    nameLbl.Size = UDim2.new(1,0,0.5,0)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Font = Enum.Font.SourceSansBold
+    nameLbl.TextSize = 14
+    nameLbl.TextStrokeTransparency = 0.5
+    nameLbl.Parent = frame
+
     local infoLbl = Instance.new("TextLabel")
-    infoLbl.Size = UDim2.new(1,0,0.5,0); infoLbl.Position = UDim2.new(0,0,0.5,0)
-    infoLbl.BackgroundTransparency = 1; infoLbl.Font = Enum.Font.SourceSans
-    infoLbl.TextSize = 12; infoLbl.TextStrokeTransparency = 0.5; infoLbl.Parent = frame
+    infoLbl.Size = UDim2.new(1,0,0.5,0)
+    infoLbl.Position = UDim2.new(0,0,0.5,0)
+    infoLbl.BackgroundTransparency = 1
+    infoLbl.Font = Enum.Font.SourceSans
+    infoLbl.TextSize = 12
+    infoLbl.TextStrokeTransparency = 0.5
+    infoLbl.Parent = frame
+
+    -- ★ 2D 圆角边框
+    local borderGui, borderFrame, borderStroke, borderCorner
+    if ESP.border then
+        borderGui = Instance.new("BillboardGui")
+        borderGui.Name = "PlayerESP_Border_" .. player.Name
+        borderGui.AlwaysOnTop = true
+        borderGui.Size = UDim2.new(0, 100, 0, 150)
+        borderGui.Adornee = root
+        borderGui.Parent = uiParent
+
+        borderFrame = Instance.new("Frame")
+        borderFrame.Size = UDim2.fromScale(1, 1)
+        borderFrame.BackgroundTransparency = 1
+        borderFrame.BorderSizePixel = 0
+        borderFrame.Parent = borderGui
+
+        borderCorner = Instance.new("UICorner")
+        borderCorner.CornerRadius = UDim.new(0, 10)
+        borderCorner.Parent = borderFrame
+
+        borderStroke = Instance.new("UIStroke")
+        borderStroke.Thickness = 1.5
+        borderStroke.Color = Color3.fromRGB(255,255,255)
+        borderStroke.Transparency = 0.15
+        borderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        borderStroke.LineJoinMode = Enum.LineJoinMode.Round
+        borderStroke.Parent = borderFrame
+    end
+
     local highlight = Instance.new("Highlight")
-    highlight.Name = "PlayerESP_Highlight"; highlight.Adornee = char
-    highlight.FillTransparency = 0.7; highlight.OutlineTransparency = 0; highlight.Parent = uiParent
-    local tracer = Drawing.new("Line"); tracer.Thickness = 1; tracer.Transparency = 0.5; tracer.Visible = false
+    highlight.Name = "PlayerESP_Highlight"
+    highlight.Adornee = char
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0
+    highlight.Parent = uiParent
+
+    local tracer = Drawing.new("Line")
+    tracer.Thickness = 1
+    tracer.Transparency = 0.5
+    tracer.Visible = false
+
     local update = RunService.Heartbeat:Connect(function()
         if not espAllowed(player) or not player.Character or not root.Parent then
             tracer.Visible = false
             if bill.Parent then bill.Enabled = false end
+            if borderGui and borderGui.Parent then borderGui.Enabled = false end
             return
         end
         bill.Enabled = true
+
         local fug = ESP.showFugitive and isFugitive(player)
         local team = player.Team and player.Team.Name
         local color = fug and Color3.fromRGB(255,0,0) or TeamColors[team] or Color3.fromRGB(0,255,0)
         local teamName = fug and "逃犯" or TeamNames[team] or (team or "未知")
+
         nameLbl.Text = "[" .. teamName .. "] " .. player.Name
-        nameLbl.TextColor3 = color; nameLbl.Visible = ESP.name
-        highlight.FillColor = color; highlight.OutlineColor = color; highlight.Enabled = ESP.highlight
+        nameLbl.TextColor3 = color
+        nameLbl.Visible = ESP.name
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.Enabled = ESP.highlight
+
+        -- 2D 边框：屏幕包围盒 + 彩虹色
+        if borderGui and borderGui.Parent and borderStroke then
+            local cam = Workspace.CurrentCamera
+            if cam then
+                local size3 = char:GetExtentsSize()
+                local topWorld = root.Position + Vector3.new(0, size3.Y/2, 0)
+                local botWorld = root.Position - Vector3.new(0, size3.Y/2, 0)
+                local topScr, topOn = cam:WorldToViewportPoint(topWorld)
+                local botScr, botOn = cam:WorldToViewportPoint(botWorld)
+                if topOn and botOn and topScr.Z > 0 and botScr.Z > 0 then
+                    local screenH = math.abs(topScr.Y - botScr.Y)
+                    if screenH >= 1 then
+                        local aspect = size3.X / math.max(size3.Y, 0.1)
+                        local screenW = screenH * aspect
+                        local padX, padY = 14, 12
+                        borderGui.Size = UDim2.new(0, math.floor(screenW) + padX*2, 0, math.floor(screenH) + padY*2)
+                        borderGui.Enabled = true
+                        borderStroke.Color = ESP_RainbowColor
+                        borderStroke.Transparency = 0.15
+                    end
+                else
+                    borderGui.Enabled = false
+                end
+            end
+        end
+
         local _, hum = GetCharacter(player)
         local _, _, myRoot = GetCharacter(LocalPlayer)
         local parts = {}
-        if ESP.distance and myRoot then table.insert(parts, string.format("%.1f", (myRoot.Position - root.Position).Magnitude)) end
-        if ESP.health and hum then table.insert(parts, tostring(math.floor(hum.Health))) end
+        if ESP.distance and myRoot then
+            table.insert(parts, string.format("%.1f", (myRoot.Position - root.Position).Magnitude))
+        end
+        if ESP.health and hum then
+            table.insert(parts, tostring(math.floor(hum.Health)))
+        end
         infoLbl.Text = #parts > 0 and ("[" .. table.concat(parts, "/") .. "]") or ""
-        infoLbl.TextColor3 = color; infoLbl.Visible = ESP.distance or ESP.health
-        local cam = Workspace.CurrentCamera
-        if ESP.tracer and cam then
-            local screen, onScreen = cam:WorldToViewportPoint(root.Position)
+        infoLbl.TextColor3 = color
+        infoLbl.Visible = ESP.distance or ESP.health
+
+        local cam2 = Workspace.CurrentCamera
+        if ESP.tracer and cam2 then
+            local screen, onScreen = cam2:WorldToViewportPoint(root.Position)
             if onScreen then
-                local vp = cam.ViewportSize
+                local vp = cam2.ViewportSize
                 if ESP.tracerOrigin == "屏幕中心" then tracer.From = Vector2.new(vp.X/2, vp.Y/2)
                 elseif ESP.tracerOrigin == "屏幕顶部" then tracer.From = Vector2.new(vp.X/2, 0)
                 else tracer.From = Vector2.new(vp.X/2, vp.Y) end
                 tracer.To = Vector2.new(screen.X, screen.Y)
-                tracer.Color = color; tracer.Visible = true
+                tracer.Color = color
+                tracer.Visible = true
             else tracer.Visible = false end
         else tracer.Visible = false end
     end)
-    ESP.trackers[player] = { bill=bill, highlight=highlight, tracer=tracer, update=update }
+
+    ESP.trackers[player] = {
+        bill=bill, borderGui=borderGui, highlight=highlight, tracer=tracer, update=update,
+    }
 end
 local function refreshESP()
     for player in pairs(ESP.trackers) do if not espAllowed(player) then removeESP(player) end end
@@ -1649,6 +1750,11 @@ local function pageESP()
     i=i+1; makeToggle("显示距离", i, ESP.distance, function(on) ESP.distance = on end)
     i=i+1; makeToggle("显示血量", i, ESP.health, function(on) ESP.health = on end)
     i=i+1; makeToggle("显示高亮", i, ESP.highlight, function(on) ESP.highlight = on end)
+    i=i+1; makeToggle("显示 2D 圆角边框", i, ESP.border, function(on)
+        ESP.border = on
+        for p in pairs(ESP.trackers) do removeESP(p) end
+        if ESP.enabled then refreshESP() end
+    end)
     i=i+1; makeToggle("显示追踪线", i, ESP.tracer, function(on) ESP.tracer = on end)
     i=i+1; makeCycle("追踪线起点", i, {"屏幕底部","屏幕中心","屏幕顶部"}, ESP.tracerOrigin, function(v) ESP.tracerOrigin = v end)
     i=i+1; makeSection("队伍", i)
@@ -1715,23 +1821,39 @@ local CORNER_TWEEN = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirec
 local function minimize()
     if minimized or animating then return end
     minimized = true; animating = true
-    TweenService:Create(panel, ISLAND_TWEEN, { Position = ISLAND_POS, Size = ISLAND_SIZE, BackgroundTransparency = 0.02 }):Play()
-    TweenService:Create(panelCorner, CORNER_TWEEN, { CornerRadius = UDim.new(1, 0) }):Play()
-    task.delay(ISLAND_TWEEN.Time, function()
-        animating = false
-        nav.Visible = false; content.Visible = false
-        minBtn.Visible = false; resizeDot.Visible = false; dragBar.Visible = false
-    end)
+    nav.Visible = false
+    content.Visible = false
+    minBtn.Visible = false
+    resizeDot.Visible = false
+    dragBar.Visible = false
+    TweenService:Create(panel, ISLAND_TWEEN, {
+        Position = ISLAND_POS, Size = ISLAND_SIZE, BackgroundTransparency = 0.02,
+    }):Play()
+    TweenService:Create(panelCorner, CORNER_TWEEN, {
+        CornerRadius = UDim.new(1, 0),
+    }):Play()
+    task.delay(ISLAND_TWEEN.Time, function() animating = false end)
 end
+
 local function expand()
     if not minimized or animating then return end
     minimized = false; animating = true
-    nav.Visible = true; content.Visible = true
-    minBtn.Visible = true; resizeDot.Visible = true; dragBar.Visible = true
-    TweenService:Create(panel, ISLAND_TWEEN, { Position = EXPAND_POS, Size = EXPAND_SIZE, BackgroundTransparency = 0.06 }):Play()
-    TweenService:Create(panelCorner, CORNER_TWEEN, { CornerRadius = UDim.new(0, 18) }):Play()
+    TweenService:Create(panel, ISLAND_TWEEN, {
+        Position = EXPAND_POS, Size = EXPAND_SIZE, BackgroundTransparency = 0.06,
+    }):Play()
+    TweenService:Create(panelCorner, CORNER_TWEEN, {
+        CornerRadius = UDim.new(0, 18),
+    }):Play()
+    task.delay(0.10, function()
+        nav.Visible = true
+        content.Visible = true
+        minBtn.Visible = true
+        resizeDot.Visible = true
+        dragBar.Visible = true
+    end)
     task.delay(ISLAND_TWEEN.Time, function() animating = false end)
 end
+
 minBtn.MouseButton1Click:Connect(minimize)
 minBtn.MouseEnter:Connect(function() TweenService:Create(minBtn, TweenInfo.new(0.15), { BackgroundTransparency = 0.1 }):Play() end)
 minBtn.MouseLeave:Connect(function() TweenService:Create(minBtn, TweenInfo.new(0.15), { BackgroundTransparency = 0.25 }):Play() end)
@@ -1789,6 +1911,7 @@ _G.RainbowBannerConn = RunService.RenderStepped:Connect(function()
     local seq = buildGradient(hueShift, 0.9, val)
     panelGrad.Color = seq
     panelGrad.Rotation = 8 + math.sin(now * 0.6) * 20
+    ESP_RainbowColor = Color3.fromHSV(hueShift, 0.9, val)
 end)
 
 gui.Destroying:Connect(function()
@@ -1885,4 +2008,4 @@ do
     print("水印：" .. (#wmMarks) .. " 个 · 左右对称平铺")
 end
 
-print("RainbowBannerUI · 全功能 + 水印 已加载")
+print("RainbowBannerUI · 全功能 + ESP 2D 彩虹边框 + 水印 已加载")
