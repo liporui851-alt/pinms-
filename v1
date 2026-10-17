@@ -1,0 +1,788 @@
+--[[
+	RainbowBannerUI · 灵动岛版 + 导航栏 + 战斗/ESP
+	移植自 PYHUB 开源版的杀戮光环（多目标）与 ESP 绕过逻辑
+--]]
+
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInput    = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local pg = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ============ 清理旧实例 ============
+local OLD_NAME = "RainbowBannerUI"
+local old = pg:FindFirstChild(OLD_NAME)
+if old then old:Destroy() end
+if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
+
+-- ============ 远程（绕过核心）============
+local RemoteFolder = ReplicatedStorage:WaitForChild("Remote", 30)
+local PlayerEvent  = RemoteFolder and RemoteFolder:WaitForChild("PlayerEvent", 30)
+local PlayerFunc   = RemoteFolder and RemoteFolder:WaitForChild("PlayerFunc", 30)
+
+-- ============ 配色 ============
+local function buildGradient(hueShift, sat, val)
+	local stops = {0.00, 0.45, 0.75, 1.00}
+	local baseH = {0.50, 0.70, 0.90, 0.12}
+	local keys = {}
+	for i, s in ipairs(stops) do
+		local h = (baseH[i] + hueShift) % 1
+		keys[i] = ColorSequenceKeypoint.new(s, Color3.fromHSV(h, sat, val))
+	end
+	return ColorSequence.new(keys)
+end
+
+local function resolveGuiParent()
+	local parent
+	pcall(function() if type(gethui) == "function" then parent = gethui() end end)
+	if parent then return parent end
+	pcall(function() parent = game:FindService("CoreGui") end)
+	if parent then return parent end
+	pcall(function() parent = LocalPlayer:WaitForChild("PlayerGui", 5) end)
+	return parent
+end
+local UI_PARENT = resolveGuiParent()
+
+-- ============ 根 GUI ============
+local gui = Instance.new("ScreenGui")
+gui.Name = OLD_NAME
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = pg
+
+-- ============ 尺寸常量 ============
+local EXPAND_POS  = UDim2.fromScale(0.5, 0.5)
+local EXPAND_SIZE = UDim2.fromScale(0.56, 0.68)
+local ISLAND_POS  = UDim2.fromScale(0.5, 0.07)
+local ISLAND_SIZE = UDim2.new(0, 130, 0, 32)
+local MIN_SIZE = Vector2.new(300, 200)
+local MAX_SIZE = Vector2.new(1000, 820)
+local NAV_W = 0.24
+
+local C_BG         = Color3.fromRGB(18, 18, 24)
+local C_NAV        = Color3.fromRGB(24, 24, 32)
+local C_ITEM       = Color3.fromRGB(34, 34, 44)
+local C_ITEM_HOVER = Color3.fromRGB(46, 46, 60)
+local C_ITEM_ACT   = Color3.fromRGB(58, 58, 78)
+local C_TXT        = Color3.fromRGB(232, 232, 240)
+local C_TXT_DIM    = Color3.fromRGB(150, 150, 165)
+local C_STROKE     = Color3.fromRGB(255, 255, 255)
+
+-- ============ 主面板 ============
+local panel = Instance.new("Frame")
+panel.Name = "Panel"
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.Position = EXPAND_POS
+panel.Size = EXPAND_SIZE
+panel.BackgroundColor3 = C_BG
+panel.BackgroundTransparency = 0.06
+panel.BorderSizePixel = 0
+panel.ClipsDescendants = true
+panel.ZIndex = 1
+panel.Parent = gui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0, 18)
+panelCorner.Parent = panel
+
+local panelStroke = Instance.new("UIStroke")
+panelStroke.Thickness = 1
+panelStroke.Transparency = 0.25
+panelStroke.Color = C_STROKE
+panelStroke.Parent = panel
+
+local panelGrad = Instance.new("UIGradient")
+panelGrad.Color = buildGradient(0, 0.9, 1)
+panelGrad.Rotation = 8
+panelGrad.Parent = panelStroke
+
+-- ============ 左侧导航栏 ============
+local nav = Instance.new("Frame")
+nav.Name = "Nav"
+nav.Position = UDim2.fromScale(0, 0)
+nav.Size = UDim2.fromScale(NAV_W, 1)
+nav.BackgroundColor3 = C_NAV
+nav.BackgroundTransparency = 0.35
+nav.BorderSizePixel = 0
+nav.ZIndex = 3
+nav.Parent = panel
+
+local navCorner = Instance.new("UICorner")
+navCorner.CornerRadius = UDim.new(0, 18)
+navCorner.Parent = nav
+
+local navDivider = Instance.new("Frame")
+navDivider.AnchorPoint = Vector2.new(1, 0.5)
+navDivider.Position = UDim2.new(1, 0, 0.5, 0)
+navDivider.Size = UDim2.new(0, 1, 0.86, 0)
+navDivider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+navDivider.BackgroundTransparency = 0.85
+navDivider.BorderSizePixel = 0
+navDivider.ZIndex = 4
+navDivider.Parent = nav
+
+local navTitle = Instance.new("TextLabel")
+navTitle.Position = UDim2.fromScale(0, 0.05)
+navTitle.Size = UDim2.fromScale(1, 0.08)
+navTitle.BackgroundTransparency = 1
+navTitle.Font = Enum.Font.GothamBold
+navTitle.Text = "  NAVIGATION"
+navTitle.TextSize = 11
+navTitle.TextColor3 = C_TXT_DIM
+navTitle.TextTransparency = 0.25
+navTitle.TextXAlignment = Enum.TextXAlignment.Left
+navTitle.ZIndex = 5
+navTitle.Parent = nav
+
+local navList = Instance.new("Frame")
+navList.Position = UDim2.fromScale(0.06, 0.16)
+navList.Size = UDim2.fromScale(0.88, 0.78)
+navList.BackgroundTransparency = 1
+navList.ZIndex = 5
+navList.Parent = nav
+
+local navLayout = Instance.new("UIListLayout")
+navLayout.FillDirection = Enum.FillDirection.Vertical
+navLayout.SortOrder = Enum.SortOrder.LayoutOrder
+navLayout.Padding = UDim.new(0, 4)
+navLayout.Parent = navList
+
+-- ============ 内容区 ============
+local content = Instance.new("Frame")
+content.Position = UDim2.fromScale(NAV_W, 0)
+content.Size = UDim2.fromScale(1 - NAV_W, 1)
+content.BackgroundTransparency = 1
+content.ZIndex = 2
+content.Parent = panel
+
+local contentTitle = Instance.new("TextLabel")
+contentTitle.Position = UDim2.fromScale(0.05, 0.05)
+contentTitle.Size = UDim2.fromScale(0.9, 0.07)
+contentTitle.BackgroundTransparency = 1
+contentTitle.Font = Enum.Font.GothamBold
+contentTitle.Text = "公告"
+contentTitle.TextSize = 18
+contentTitle.TextColor3 = C_TXT
+contentTitle.TextTransparency = 0.05
+contentTitle.TextXAlignment = Enum.TextXAlignment.Left
+contentTitle.ZIndex = 3
+contentTitle.Parent = content
+
+local infoScroll = Instance.new("ScrollingFrame")
+infoScroll.Position = UDim2.fromScale(0.05, 0.15)
+infoScroll.Size = UDim2.fromScale(0.9, 0.78)
+infoScroll.BackgroundTransparency = 1
+infoScroll.BorderSizePixel = 0
+infoScroll.ScrollBarThickness = 3
+infoScroll.ScrollBarImageColor3 = Color3.fromRGB(120, 120, 140)
+infoScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+infoScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+infoScroll.ZIndex = 3
+infoScroll.Parent = content
+
+local infoLayout = Instance.new("UIListLayout")
+infoLayout.FillDirection = Enum.FillDirection.Vertical
+infoLayout.SortOrder = Enum.SortOrder.LayoutOrder
+infoLayout.Padding = UDim.new(0, 8)
+infoLayout.Parent = infoScroll
+
+local infoPad = Instance.new("UIPadding")
+infoPad.PaddingRight = UDim.new(0, 6)
+infoPad.PaddingBottom = UDim.new(0, 6)
+infoPad.Parent = infoScroll
+
+local function makeRow(parent, text, order, isToggle, default, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Name = "Row_" .. order
+	btn.Size = UDim2.new(1, 0, 0, 38)
+	btn.BackgroundColor3 = isToggle and default and C_ITEM_ACT or C_ITEM
+	btn.BackgroundTransparency = isToggle and default and 0.15 or 0.4
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.Font = Enum.Font.GothamMedium
+	btn.Text = "  " .. text .. (isToggle and ("    [" .. (default and "开" or "关") .. "]") or "")
+	btn.TextSize = 14
+	btn.TextColor3 = C_TXT
+	btn.TextTransparency = 0.1
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	btn.LayoutOrder = order
+	btn.ZIndex = 6
+	btn.Parent = parent
+
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
+	local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
+
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM_HOVER, BackgroundTransparency = 0.25 }):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		if not isToggle or not btn:GetAttribute("On") then
+			TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4 }):Play()
+		else
+			TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM_ACT, BackgroundTransparency = 0.15 }):Play()
+		end
+	end)
+
+	if isToggle then
+		btn:SetAttribute("On", default)
+		btn.MouseButton1Click:Connect(function()
+			local on = not btn:GetAttribute("On")
+			btn:SetAttribute("On", on)
+			btn.Text = "  " .. text .. "    [" .. (on and "开" or "关") .. "]"
+			TweenService:Create(btn, TweenInfo.new(0.15), {
+				BackgroundColor3 = on and C_ITEM_ACT or C_ITEM,
+				BackgroundTransparency = on and 0.15 or 0.4,
+			}):Play()
+			if onClick then onClick(on) end
+		end)
+	else
+		if onClick then btn.MouseButton1Click:Connect(onClick) end
+	end
+	return btn
+end
+
+-- ============ 导航项 ============
+local activeItem = nil
+local navItems = {}
+
+local function setActive(item)
+	if activeItem == item then return end
+	if activeItem then
+		TweenService:Create(activeItem, TweenInfo.new(0.18), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4, TextColor3 = C_TXT_DIM, TextTransparency = 0.25 }):Play()
+		local s = activeItem:FindFirstChildOfClass("UIStroke"); if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.75 }):Play() end
+	end
+	activeItem = item
+	TweenService:Create(item, TweenInfo.new(0.18), { BackgroundColor3 = C_ITEM_ACT, BackgroundTransparency = 0.15, TextColor3 = C_TXT, TextTransparency = 0 }):Play()
+	local s = item:FindFirstChildOfClass("UIStroke"); if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.45 }):Play() end
+end
+
+local function makeNavItem(label, order, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Name = label
+	btn.Size = UDim2.new(1, 0, 0, 32)
+	btn.BackgroundColor3 = C_ITEM
+	btn.BackgroundTransparency = 0.4
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.Font = Enum.Font.GothamMedium
+	btn.Text = "  " .. label
+	btn.TextSize = 14
+	btn.TextColor3 = C_TXT_DIM
+	btn.TextTransparency = 0.25
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	btn.LayoutOrder = order
+	btn.ZIndex = 6
+	btn.Parent = navList
+
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
+	local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
+
+	btn.MouseEnter:Connect(function()
+		if activeItem == btn then return end
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM_HOVER, BackgroundTransparency = 0.25, TextColor3 = C_TXT, TextTransparency = 0.1 }):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		if activeItem == btn then return end
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C_ITEM, BackgroundTransparency = 0.4, TextColor3 = C_TXT_DIM, TextTransparency = 0.25 }):Play()
+	end)
+	btn.MouseButton1Click:Connect(function()
+		setActive(btn)
+		if onClick then onClick() end
+	end)
+	table.insert(navItems, btn)
+	return btn
+end
+
+-- ============ 清除内容 ============
+local function clearContent()
+	for _, ch in ipairs(infoScroll:GetChildren()) do
+		if ch:IsA("TextButton") then ch:Destroy() end
+	end
+end
+
+-- ============ 页面：公告 ============
+local INFO_ROWS = {
+	"Pinms 圣奥里项目「ice」内测",
+	"版本：v1",
+	"最后一次更新：2000 1-1",
+	"pinms现支持服务器：",
+	"圣奥里",
+	"制作人：Oreo  LinX",
+	"师傅：LinX",
+	"官方QQ群号：1043827844",
+	"未来持续更新更多服务器",
+}
+local function pageAnnounce()
+	contentTitle.Text = "公告"
+	clearContent()
+	for i, txt in ipairs(INFO_ROWS) do makeRow(infoScroll, txt, i) end
+end
+
+-- ============ 战斗配置 ============
+local CombatConfig = {
+	auraEnabled     = false,
+	auraRange       = 120,
+	auraDamage      = 10,
+	auraInterval    = 0.05,
+	auraMaxTargets  = 5,
+	auraOnlyPolice  = false,
+	auraOnlyCivilian= false,
+	auraCombatCheck = false,
+	auraBeam        = false,
+}
+
+-- ============ 通用工具 ============
+local function GetCharacter(player)
+	player = player or LocalPlayer
+	local char = player.Character
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+	if not hum or not root then return end
+	return char, hum, root
+end
+local function IsAlive(player)
+	local _, hum = GetCharacter(player)
+	return hum ~= nil and hum.Health > 0
+end
+local function targetAllowed(player, onlyPolice, onlyCivilian)
+	if not player or player == LocalPlayer then return false end
+	if onlyPolice   then return player.Team and player.Team.Name == "Police"   end
+	if onlyCivilian then return player.Team and player.Team.Name == "Civilian" end
+	return true
+end
+local function inCombat(player, enabled)
+	if not enabled then return true end
+	return player:GetAttribute("CombatMode") == true or player:GetAttribute("Pursuit") == true
+end
+
+-- ============ 弹道 ============
+local function createBeam(startPos, endPos)
+	local p1 = Instance.new("Part"); local p2 = Instance.new("Part")
+	for _, p in ipairs({p1, p2}) do
+		p.Anchored = true; p.CanCollide = false; p.Transparency = 1
+		p.Size = Vector3.new(0.1, 0.1, 0.1); p.Parent = Workspace
+	end
+	p1.Position = startPos; p2.Position = endPos
+	local a1 = Instance.new("Attachment", p1)
+	local a2 = Instance.new("Attachment", p2)
+	local beam = Instance.new("Beam", p1)
+	beam.Attachment0 = a1; beam.Attachment1 = a2
+	beam.Width0 = 0.15; beam.Width1 = 0.15
+	beam.Color = ColorSequence.new(Color3.fromRGB(180, 200, 255))
+	task.delay(0.8, function() pcall(function() p1:Destroy(); p2:Destroy() end) end)
+end
+
+-- ============ 杀戮光环（多目标 · 绕过）============
+local auraLast = 0
+RunService.Heartbeat:Connect(function()
+	if not CombatConfig.auraEnabled or not PlayerEvent then return end
+	local now = tick()
+	if now - auraLast < CombatConfig.auraInterval then return end
+
+	local _, _, myRoot = GetCharacter(LocalPlayer)
+	if not myRoot then return end
+
+	local targets = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if targetAllowed(player, CombatConfig.auraOnlyPolice, CombatConfig.auraOnlyCivilian)
+			and IsAlive(player) and inCombat(player, CombatConfig.auraCombatCheck) then
+			local _, _, root = GetCharacter(player)
+			if root then
+				local dist = (root.Position - myRoot.Position).Magnitude
+				if dist <= CombatConfig.auraRange then
+					table.insert(targets, { player = player, root = root, dist = dist })
+				end
+			end
+		end
+	end
+	if #targets == 0 then return end
+	table.sort(targets, function(a, b) return a.dist < b.dist end)
+	local count = math.min(#targets, CombatConfig.auraMaxTargets)
+	local myPos = myRoot.Position
+
+	for i = 1, count do
+		local t = targets[i]
+		pcall(function()
+			PlayerEvent:FireServer("damage", {
+				bodyParts = { { "Head", 1 } },
+				shotCode  = { myPos, (t.root.Position - myPos).Unit },
+				pos       = t.root.Position,
+				target    = t.player,
+				damageFactor = CombatConfig.auraDamage,
+				bulletProofTool = false,
+			})
+		end)
+		if CombatConfig.auraBeam then
+			pcall(function() createBeam(myPos, t.root.Position) end)
+		end
+	end
+	auraLast = now
+end)
+
+-- ============ ESP（参考 PYHUB）============
+local ESP = {
+	enabled = false, name = true, distance = true, health = true, highlight = true,
+	tracer = false, tracerOrigin = "屏幕底部", showFugitive = true,
+	selectedTeams = { Chef=true, Civilian=true, Delivery=true, Farmer=true, Fire=true,
+		Police=true, Medical=true, Prisoner=true, ["Road Service"]=true, Transit=true },
+	trackers = {},
+}
+local TeamNames = { Chef="厨师", Civilian="平民", Delivery="配送员", Farmer="农民",
+	Fire="消防员", Police="警察", Medical="医护人员", Prisoner="囚犯",
+	["Road Service"]="道路服务", Transit="交通" }
+local TeamColors = { Chef=Color3.fromRGB(255,200,0), Civilian=Color3.fromRGB(100,200,255),
+	Delivery=Color3.fromRGB(255,150,50), Farmer=Color3.fromRGB(50,200,50),
+	Fire=Color3.fromRGB(255,50,50), Police=Color3.fromRGB(50,100,255),
+	Medical=Color3.fromRGB(255,50,255), Prisoner=Color3.fromRGB(255,150,150),
+	["Road Service"]=Color3.fromRGB(255,255,100), Transit=Color3.fromRGB(100,255,255) }
+
+local function isFugitive(player)
+	return player.Team and player.Team.Name == "Civilian"
+		and (player:GetAttribute("CombatMode") or player:GetAttribute("Pursuit"))
+end
+local function espAllowed(player)
+	if not ESP.enabled or player == LocalPlayer or not player.Character then return false end
+	if ESP.showFugitive and isFugitive(player) then return true end
+	local team = player.Team and player.Team.Name
+	return team and ESP.selectedTeams[team] == true
+end
+local function removeESP(player)
+	local t = ESP.trackers[player]
+	if not t then return end
+	for _, obj in pairs(t) do
+		pcall(function()
+			if typeof(obj) == "RBXScriptConnection" then obj:Disconnect()
+			elseif typeof(obj) == "Instance" then obj:Destroy()
+			elseif type(obj) == "userdata" and obj.Remove then obj:Remove() end
+		end)
+	end
+	ESP.trackers[player] = nil
+end
+local function createESP(player)
+	removeESP(player)
+	if not espAllowed(player) then return end
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	local uiParent = UI_PARENT or resolveGuiParent()
+	if not uiParent then return end
+
+	local bill = Instance.new("BillboardGui")
+	bill.Name = "PlayerESP_" .. player.Name
+	bill.AlwaysOnTop = true
+	bill.Size = UDim2.new(4, 0, 4, 0)
+	bill.StudsOffset = Vector3.new(0, 3, 0)
+	bill.Adornee = root
+	bill.Parent = uiParent
+
+	local frame = Instance.new("Frame"); frame.BackgroundTransparency = 1; frame.Size = UDim2.fromScale(1,1); frame.Parent = bill
+	local nameLbl = Instance.new("TextLabel")
+	nameLbl.Size = UDim2.new(1,0,0.5,0); nameLbl.BackgroundTransparency = 1
+	nameLbl.Font = Enum.Font.SourceSansBold; nameLbl.TextSize = 14; nameLbl.TextStrokeTransparency = 0.5
+	nameLbl.Parent = frame
+	local infoLbl = Instance.new("TextLabel")
+	infoLbl.Size = UDim2.new(1,0,0.5,0); infoLbl.Position = UDim2.new(0,0,0.5,0)
+	infoLbl.BackgroundTransparency = 1; infoLbl.Font = Enum.Font.SourceSans
+	infoLbl.TextSize = 12; infoLbl.TextStrokeTransparency = 0.5; infoLbl.Parent = frame
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "PlayerESP_Highlight"
+	highlight.Adornee = char; highlight.FillTransparency = 0.7; highlight.OutlineTransparency = 0
+	highlight.Parent = uiParent
+
+	local tracer = Drawing.new("Line"); tracer.Thickness = 1; tracer.Transparency = 0.5; tracer.Visible = false
+
+	local update = RunService.Heartbeat:Connect(function()
+		if not espAllowed(player) or not player.Character or not root.Parent then
+			tracer.Visible = false
+			if bill.Parent then bill.Enabled = false end
+			return
+		end
+		bill.Enabled = true
+		local fug = ESP.showFugitive and isFugitive(player)
+		local team = player.Team and player.Team.Name
+		local color = fug and Color3.fromRGB(255,0,0) or TeamColors[team] or Color3.fromRGB(0,255,0)
+		local teamName = fug and "逃犯" or TeamNames[team] or (team or "未知")
+		nameLbl.Text = "[" .. teamName .. "] " .. player.Name
+		nameLbl.TextColor3 = color; nameLbl.Visible = ESP.name
+		highlight.FillColor = color; highlight.OutlineColor = color; highlight.Enabled = ESP.highlight
+		local _, hum = GetCharacter(player)
+		local _, _, myRoot = GetCharacter(LocalPlayer)
+		local parts = {}
+		if ESP.distance and myRoot then table.insert(parts, string.format("%.1f", (myRoot.Position - root.Position).Magnitude)) end
+		if ESP.health and hum then table.insert(parts, tostring(math.floor(hum.Health))) end
+		infoLbl.Text = #parts > 0 and ("[" .. table.concat(parts, "/") .. "]") or ""
+		infoLbl.TextColor3 = color; infoLbl.Visible = ESP.distance or ESP.health
+		local cam = Workspace.CurrentCamera
+		if ESP.tracer and cam then
+			local screen, onScreen = cam:WorldToViewportPoint(root.Position)
+			if onScreen then
+				local vp = cam.ViewportSize
+				if ESP.tracerOrigin == "屏幕中心" then tracer.From = Vector2.new(vp.X/2, vp.Y/2)
+				elseif ESP.tracerOrigin == "屏幕顶部" then tracer.From = Vector2.new(vp.X/2, 0)
+				else tracer.From = Vector2.new(vp.X/2, vp.Y) end
+				tracer.To = Vector2.new(screen.X, screen.Y)
+				tracer.Color = color; tracer.Visible = true
+			else tracer.Visible = false end
+		else tracer.Visible = false end
+	end)
+	ESP.trackers[player] = { bill = bill, highlight = highlight, tracer = tracer, update = update }
+end
+local function refreshESP()
+	for player in pairs(ESP.trackers) do if not espAllowed(player) then removeESP(player) end end
+	if ESP.enabled then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and espAllowed(player) and not ESP.trackers[player] then createESP(player) end
+		end
+	end
+end
+Players.PlayerAdded:Connect(function(p)
+	p.CharacterAdded:Connect(function() task.wait(0.5); if ESP.enabled then createESP(p) end end)
+end)
+Players.PlayerRemoving:Connect(removeESP)
+RunService.Heartbeat:Connect(function() if ESP.enabled then refreshESP() end end)
+
+-- ============ 页面：战斗 ============
+local function pageCombat()
+	contentTitle.Text = "杀戮光环"
+	clearContent()
+	local i = 0
+	i=i+1; makeRow(infoScroll, "开启杀戮光环（多目标）", i, true, false, function(on) CombatConfig.auraEnabled = on end)
+	i=i+1; makeRow(infoScroll, "只攻击警察", i, true, false, function(on) CombatConfig.auraOnlyPolice = on; if on then CombatConfig.auraOnlyCivilian=false end end)
+	i=i+1; makeRow(infoScroll, "只攻击平民", i, true, false, function(on) CombatConfig.auraOnlyCivilian = on; if on then CombatConfig.auraOnlyPolice=false end end)
+	i=i+1; makeRow(infoScroll, "战斗检测", i, true, false, function(on) CombatConfig.auraCombatCheck = on end)
+	i=i+1; makeRow(infoScroll, "弹道显示", i, true, false, function(on) CombatConfig.auraBeam = on end)
+	-- 范围 / 伤害 / 目标数 用点击 +1 循环的方式调（无输入框时够用）
+	i=i+1; makeRow(infoScroll, "攻击范围: 120  (点击+10)", i, false, false, function()
+		CombatConfig.auraRange = CombatConfig.auraRange % 500 + 10
+		contentTitle.Text = "杀戮光环 · 范围 " .. CombatConfig.auraRange
+	end)
+	i=i+1; makeRow(infoScroll, "伤害倍率: 10  (点击+5)", i, false, false, function()
+		CombatConfig.auraDamage = CombatConfig.auraDamage % 100 + 5
+		contentTitle.Text = "杀戮光环 · 伤害 " .. CombatConfig.auraDamage
+	end)
+	i=i+1; makeRow(infoScroll, "同时目标数: 5  (点击+1)", i, false, false, function()
+		CombatConfig.auraMaxTargets = CombatConfig.auraMaxTargets % 10 + 1
+		contentTitle.Text = "杀戮光环 · 目标 " .. CombatConfig.auraMaxTargets
+	end)
+end
+
+-- ============ 页面：ESP ============
+local function pageESP()
+	contentTitle.Text = "ESP"
+	clearContent()
+	local i = 0
+	i=i+1; makeRow(infoScroll, "透视总开关", i, true, false, function(on) ESP.enabled = on; if on then refreshESP() else for p in pairs(ESP.trackers) do removeESP(p) end end end)
+	i=i+1; makeRow(infoScroll, "显示名字", i, true, true, function(on) ESP.name = on end)
+	i=i+1; makeRow(infoScroll, "显示距离", i, true, true, function(on) ESP.distance = on end)
+	i=i+1; makeRow(infoScroll, "显示血量", i, true, true, function(on) ESP.health = on end)
+	i=i+1; makeRow(infoScroll, "显示高亮", i, true, true, function(on) ESP.highlight = on end)
+	i=i+1; makeRow(infoScroll, "显示追踪线", i, true, false, function(on) ESP.tracer = on end)
+	i=i+1; makeRow(infoScroll, "追踪线起点: 屏幕底部 (点击切换)", i, false, false, function()
+		local order = {"屏幕底部","屏幕中心","屏幕顶部"}
+		local cur = ESP.tracerOrigin
+		for idx, v in ipairs(order) do if v == cur then ESP.tracerOrigin = order[idx % 3 + 1]; break end end
+		contentTitle.Text = "ESP · 起点 " .. ESP.tracerOrigin
+	end)
+	i=i+1; makeRow(infoScroll, "显示逃犯(红)", i, true, true, function(on) ESP.showFugitive = on; refreshESP() end)
+	i=i+1; makeRow(infoScroll, "警察透视", i, true, true, function(on) ESP.selectedTeams.Police = on; refreshESP() end)
+	i=i+1; makeRow(infoScroll, "平民透视", i, true, true, function(on) ESP.selectedTeams.Civilian = on; refreshESP() end)
+	i=i+1; makeRow(infoScroll, "消防透视", i, true, true, function(on) ESP.selectedTeams.Fire = on; refreshESP() end)
+	i=i+1; makeRow(infoScroll, "医护透视", i, true, true, function(on) ESP.selectedTeams.Medical = on; refreshESP() end)
+end
+
+-- ============ 导航 ============
+makeNavItem("公告", 1, pageAnnounce)
+makeNavItem("战斗", 2, pageCombat)
+makeNavItem("ESP",  3, pageESP)
+setActive(navList:FindFirstChild("公告"))
+pageAnnounce()
+
+-- ============ 右上角最小化 ============
+local minBtn = Instance.new("TextButton")
+minBtn.Name = "Minimize"
+minBtn.AnchorPoint = Vector2.new(1, 0)
+minBtn.Position = UDim2.new(1, -10, 0, 10)
+minBtn.Size = UDim2.new(0, 26, 0, 26)
+minBtn.BackgroundColor3 = C_ITEM
+minBtn.BackgroundTransparency = 0.25
+minBtn.BorderSizePixel = 0
+minBtn.AutoButtonColor = false
+minBtn.Font = Enum.Font.GothamBold
+minBtn.Text = "—"
+minBtn.TextSize = 16
+minBtn.TextColor3 = C_TXT
+minBtn.TextTransparency = 0.05
+minBtn.ZIndex = 20
+minBtn.Parent = panel
+local minCorner = Instance.new("UICorner"); minCorner.CornerRadius = UDim.new(0, 8); minCorner.Parent = minBtn
+local minStroke = Instance.new("UIStroke"); minStroke.Thickness = 1; minStroke.Transparency = 0.5; minStroke.Color = C_STROKE; minStroke.Parent = minBtn
+
+-- ============ 右下角小圆点 ============
+local resizeDot = Instance.new("TextButton")
+resizeDot.Name = "ResizeDot"
+resizeDot.AnchorPoint = Vector2.new(1, 1)
+resizeDot.Position = UDim2.new(1, -9, 1, -9)
+resizeDot.Size = UDim2.new(0, 12, 0, 12)
+resizeDot.BackgroundColor3 = C_TXT
+resizeDot.BackgroundTransparency = 0.35
+resizeDot.BorderSizePixel = 0
+resizeDot.AutoButtonColor = false
+resizeDot.Text = ""
+resizeDot.ZIndex = 20
+resizeDot.Parent = panel
+local dotCorner = Instance.new("UICorner"); dotCorner.CornerRadius = UDim.new(1, 0); dotCorner.Parent = resizeDot
+local dotStroke = Instance.new("UIStroke"); dotStroke.Thickness = 1; dotStroke.Transparency = 0.3; dotStroke.Color = C_STROKE; dotStroke.Parent = resizeDot
+
+-- ============ 底部小长条 ============
+local dragBar = Instance.new("TextButton")
+dragBar.Name = "DragBar"
+dragBar.AnchorPoint = Vector2.new(0.5, 1)
+dragBar.Position = UDim2.new(0.5, 0, 1, -14)
+dragBar.Size = UDim2.new(0, 46, 0, 5)
+dragBar.BackgroundColor3 = Color3.fromRGB(140, 140, 155)
+dragBar.BackgroundTransparency = 0.4
+dragBar.BorderSizePixel = 0
+dragBar.AutoButtonColor = false
+dragBar.Text = ""
+dragBar.ZIndex = 20
+dragBar.Parent = panel
+local dragCorner = Instance.new("UICorner"); dragCorner.CornerRadius = UDim.new(1, 0); dragCorner.Parent = dragBar
+
+-- ============ 状态 & 动画 ============
+local minimized = false
+local animating = false
+local activeDrag = nil
+local ISLAND_TWEEN = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local CORNER_TWEEN = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+local function collectHideTargets()
+	local list = {}
+	local function add(obj, prop, from, to) table.insert(list, { obj=obj, prop=prop, from=from, to=to }) end
+	add(nav, "BackgroundTransparency", 0.35, 1)
+	add(navDivider, "BackgroundTransparency", 0.85, 1)
+	add(navTitle, "TextTransparency", 0.25, 1)
+	add(contentTitle, "TextTransparency", 0.05, 1)
+	add(minBtn, "TextTransparency", 0.05, 1)
+	add(minBtn, "BackgroundTransparency", 0.25, 1)
+	add(minStroke, "Transparency", 0.5, 1)
+	add(resizeDot, "BackgroundTransparency", 0.35, 1)
+	add(dotStroke, "Transparency", 0.3, 1)
+	add(dragBar, "BackgroundTransparency", 0.4, 1)
+	for _, btn in ipairs(navItems) do
+		add(btn, "BackgroundTransparency", btn.BackgroundTransparency, 1)
+		add(btn, "TextTransparency", btn.TextTransparency, 1)
+		local s = btn:FindFirstChildOfClass("UIStroke"); if s then add(s, "Transparency", s.Transparency, 1) end
+	end
+	for _, ch in ipairs(infoScroll:GetChildren()) do
+		if ch:IsA("TextButton") then
+			add(ch, "BackgroundTransparency", ch.BackgroundTransparency, 1)
+			add(ch, "TextTransparency", ch.TextTransparency, 1)
+			local s = ch:FindFirstChildOfClass("UIStroke"); if s then add(s, "Transparency", s.Transparency, 1) end
+		end
+	end
+	return list
+end
+
+local function minimize()
+	if minimized or animating then return end
+	minimized = true; animating = true
+	local hideTargets = collectHideTargets()
+	for _, h in ipairs(hideTargets) do TweenService:Create(h.obj, ISLAND_TWEEN, { [h.prop] = h.to }):Play() end
+	TweenService:Create(panel, ISLAND_TWEEN, { Position = ISLAND_POS, Size = ISLAND_SIZE, BackgroundTransparency = 0.02 }):Play()
+	TweenService:Create(panelCorner, CORNER_TWEEN, { CornerRadius = UDim.new(1, 0) }):Play()
+	task.delay(ISLAND_TWEEN.Time, function()
+		animating = false
+		nav.Visible = false; content.Visible = false
+		minBtn.Visible = false; resizeDot.Visible = false; dragBar.Visible = false
+	end)
+end
+
+local function expand()
+	if not minimized or animating then return end
+	minimized = false; animating = true
+	nav.Visible = true; content.Visible = true
+	minBtn.Visible = true; resizeDot.Visible = true; dragBar.Visible = true
+	local hideTargets = collectHideTargets()
+	for _, h in ipairs(hideTargets) do TweenService:Create(h.obj, ISLAND_TWEEN, { [h.prop] = h.from }):Play() end
+	TweenService:Create(panel, ISLAND_TWEEN, { Position = EXPAND_POS, Size = EXPAND_SIZE, BackgroundTransparency = 0.06 }):Play()
+	TweenService:Create(panelCorner, CORNER_TWEEN, { CornerRadius = UDim.new(0, 18) }):Play()
+	task.delay(ISLAND_TWEEN.Time, function() animating = false end)
+end
+
+minBtn.MouseButton1Click:Connect(minimize)
+minBtn.MouseEnter:Connect(function() TweenService:Create(minBtn, TweenInfo.new(0.15), { BackgroundTransparency = 0.1 }):Play() end)
+minBtn.MouseLeave:Connect(function() TweenService:Create(minBtn, TweenInfo.new(0.15), { BackgroundTransparency = 0.25 }):Play() end)
+panel.InputBegan:Connect(function(input)
+	if minimized and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then expand() end
+end)
+
+-- ============ 拖拽调大小 ============
+local resizing = false
+local resizeStartSize, resizeStartMouse
+resizeDot.InputBegan:Connect(function(input)
+	if minimized or animating or activeDrag ~= nil then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		resizing = true; activeDrag = "resize"
+		resizeStartSize = panel.AbsoluteSize
+		resizeStartMouse = UserInput:GetMouseLocation()
+		resizeDot.BackgroundTransparency = 0.05
+	end
+end)
+
+-- ============ 拖动整个 UI ============
+local dragging = false
+local dragStartPos, dragStartMouse
+dragBar.InputBegan:Connect(function(input)
+	if minimized or animating or activeDrag ~= nil then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true; activeDrag = "move"
+		dragStartPos = panel.Position
+		dragStartMouse = UserInput:GetMouseLocation()
+		dragBar.BackgroundTransparency = 0.1
+	end
+end)
+
+UserInput.InputChanged:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+	local mouse = UserInput:GetMouseLocation()
+	if resizing then
+		local delta = mouse - resizeStartMouse
+		local newX = math.clamp(resizeStartSize.X + delta.X, MIN_SIZE.X, MAX_SIZE.X)
+		local newY = math.clamp(resizeStartSize.Y + delta.Y, MIN_SIZE.Y, MAX_SIZE.Y)
+		panel.Size = UDim2.fromOffset(newX, newY)
+	elseif dragging then
+		local delta = mouse - dragStartMouse
+		local vp = workspace.CurrentCamera.ViewportSize
+		panel.Position = UDim2.new(dragStartPos.X.Scale + delta.X/vp.X, dragStartPos.X.Offset, dragStartPos.Y.Scale + delta.Y/vp.Y, dragStartPos.Y.Offset)
+	end
+end)
+
+UserInput.InputEnded:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+	if resizing then resizing = false; activeDrag = nil; resizeDot.BackgroundTransparency = 0.35 end
+	if dragging then dragging = false; activeDrag = nil; dragBar.BackgroundTransparency = 0.4 end
+end)
+
+-- ============ 循环动画 ============
+local t0 = os.clock()
+_G.RainbowBannerConn = RunService.RenderStepped:Connect(function()
+	local now = os.clock() - t0
+	local hueShift = (now * 0.35) % 1
+	local val = 0.88 + ((math.sin(now * 2.2) + 1) / 2) * 0.12
+	local seq = buildGradient(hueShift, 0.9, val)
+	panelGrad.Color = seq
+	panelGrad.Rotation = 8 + math.sin(now * 0.6) * 20
+end)
+
+gui.Destroying:Connect(function()
+	if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
+end)
+
+print("RainbowBannerUI · 战斗/ESP 已加载")
