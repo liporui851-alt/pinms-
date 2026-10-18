@@ -1253,17 +1253,18 @@ end
 -- ============================================================
 --                       UI 框架
 -- ============================================================
-local C_BG         = Color3.fromRGB(18,18,24)
-local C_NAV        = Color3.fromRGB(24,24,32)
-local C_CARD       = Color3.fromRGB(30,30,40)
-local C_ITEM       = Color3.fromRGB(34,34,44)
-local C_ITEM_HOVER = Color3.fromRGB(46,46,60)
-local C_ITEM_ACT   = Color3.fromRGB(58,58,78)
-local C_TXT        = Color3.fromRGB(232,232,240)
-local C_TXT_DIM    = Color3.fromRGB(150,150,165)
-local C_STROKE     = Color3.fromRGB(255,255,255)
-local C_ACCENT     = Color3.fromRGB(90,160,255)
-local C_SWITCH_OFF = Color3.fromRGB(60,60,72)
+-- PINMS NEO / premium dark glass design tokens
+local C_BG         = Color3.fromRGB(10, 13, 23)
+local C_NAV        = Color3.fromRGB(13, 18, 32)
+local C_CARD       = Color3.fromRGB(23, 29, 47)
+local C_ITEM       = Color3.fromRGB(24, 32, 51)
+local C_ITEM_HOVER = Color3.fromRGB(35, 47, 73)
+local C_ITEM_ACT   = Color3.fromRGB(37, 53, 85)
+local C_TXT        = Color3.fromRGB(241, 247, 255)
+local C_TXT_DIM    = Color3.fromRGB(147, 164, 192)
+local C_STROKE     = Color3.fromRGB(102, 126, 178)
+local C_ACCENT     = Color3.fromRGB(88, 190, 255)
+local C_SWITCH_OFF = Color3.fromRGB(51, 62, 84)
 
 local function buildGradient(hueShift, sat, val)
     local stops = {0.00, 0.45, 0.75, 1.00}
@@ -1292,38 +1293,78 @@ local function bestWindowSize(viewport)
 end
 local EXPAND_SIZE = bestWindowSize(initialVP)
 local ISLAND_POS  = UDim2.fromScale(0.5, 0.07)
-local ISLAND_SIZE = UDim2.new(0, 130, 0, 32)
+local ISLAND_SIZE = UDim2.new(0, 156, 0, 36)
 local MIN_SIZE = Vector2.new(260, 210)
 local MAX_SIZE = Vector2.new(1000, 820)
-local NAV_W = 0.24
+local NAV_W = 0.255
+local mobileLayout = false
 
 local panel = Instance.new("Frame")
 panel.AnchorPoint = Vector2.new(0.5, 0.5); panel.Position = EXPAND_POS; panel.Size = EXPAND_SIZE
-panel.BackgroundColor3 = C_BG; panel.BackgroundTransparency = 0.06
+panel.BackgroundColor3 = C_BG; panel.BackgroundTransparency = 0.025
 panel.BorderSizePixel = 0; panel.ClipsDescendants = true; panel.ZIndex = 1; panel.Parent = gui
-local panelCorner = Instance.new("UICorner"); panelCorner.CornerRadius = UDim.new(0, 18); panelCorner.Parent = panel
-local panelStroke = Instance.new("UIStroke"); panelStroke.Thickness = 1; panelStroke.Transparency = 0.25; panelStroke.Color = C_STROKE; panelStroke.Parent = panel
-local panelGrad = Instance.new("UIGradient"); panelGrad.Color = buildGradient(0, 0.9, 1); panelGrad.Rotation = 8; panelGrad.Parent = panelStroke
+local adaptiveScale = Instance.new("UIScale")
+adaptiveScale.Name = "AdaptiveScale"
+adaptiveScale.Scale = 1
+adaptiveScale.Parent = panel
+local panelCorner = Instance.new("UICorner"); panelCorner.CornerRadius = UDim.new(0, 22); panelCorner.Parent = panel
+local panelAtmosphere = Instance.new("UIGradient")
+panelAtmosphere.Rotation = 125
+panelAtmosphere.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 30, 58)),
+    ColorSequenceKeypoint.new(0.43, Color3.fromRGB(11, 15, 29)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 12, 34)),
+})
+panelAtmosphere.Parent = panel
+local panelStroke = Instance.new("UIStroke"); panelStroke.Thickness = 1.6; panelStroke.Transparency = 0.10; panelStroke.Color = C_STROKE; panelStroke.Parent = panel
+local panelGrad = Instance.new("UIGradient"); panelGrad.Color = buildGradient(0, 0.9, 1); panelGrad.Rotation = 25; panelGrad.Parent = panelStroke
 
 local nav = Instance.new("Frame")
 nav.Position = UDim2.fromScale(0,0); nav.Size = UDim2.fromScale(NAV_W, 1)
-nav.BackgroundColor3 = C_NAV; nav.BackgroundTransparency = 0.35
+nav.BackgroundColor3 = C_NAV; nav.BackgroundTransparency = 0.07
 nav.BorderSizePixel = 0; nav.ZIndex = 3; nav.Parent = panel
-local navCorner = Instance.new("UICorner"); navCorner.CornerRadius = UDim.new(0, 18); navCorner.Parent = nav
+local navCorner = Instance.new("UICorner"); navCorner.CornerRadius = UDim.new(0, 22); navCorner.Parent = nav
 local navDivider = Instance.new("Frame")
 navDivider.AnchorPoint = Vector2.new(1, 0.5); navDivider.Position = UDim2.new(1, 0, 0.5, 0)
 navDivider.Size = UDim2.new(0, 1, 0.86, 0); navDivider.BackgroundColor3 = Color3.fromRGB(255,255,255)
 navDivider.BackgroundTransparency = 0.85; navDivider.BorderSizePixel = 0; navDivider.ZIndex = 4; navDivider.Parent = nav
 local navTitle = Instance.new("TextLabel")
-navTitle.Position = UDim2.fromScale(0, 0.04); navTitle.Size = UDim2.fromScale(1, 0.07)
+navTitle.Position = UDim2.fromScale(0.09, 0.100); navTitle.Size = UDim2.fromScale(0.88, 0.038)
 navTitle.BackgroundTransparency = 1; navTitle.Font = Enum.Font.GothamBold
-navTitle.Text = "  NAVIGATION"; navTitle.TextSize = 11; navTitle.TextColor3 = C_TXT_DIM
+navTitle.Text = "W O R K S P A C E"; navTitle.TextSize = 10; navTitle.TextColor3 = C_TXT_DIM
 navTitle.TextTransparency = 0.25; navTitle.TextXAlignment = Enum.TextXAlignment.Left
 navTitle.ZIndex = 5; navTitle.Parent = nav
 
+local brand = Instance.new("TextLabel")
+brand.Name = "PinmsBrand"
+brand.Position = UDim2.fromScale(0.095, 0.027)
+brand.Size = UDim2.fromScale(0.78, 0.065)
+brand.BackgroundTransparency = 1
+brand.Text = "PINMS  HUB"
+brand.TextColor3 = C_TXT
+brand.Font = Enum.Font.GothamBlack
+brand.TextScaled = true
+brand.TextXAlignment = Enum.TextXAlignment.Left
+brand.ZIndex = 6
+brand.Parent = nav
+local brandConstraint = Instance.new("UITextSizeConstraint")
+brandConstraint.MaxTextSize = 23
+brandConstraint.MinTextSize = 11
+brandConstraint.Parent = brand
+local brandLine = Instance.new("Frame")
+brandLine.Position = UDim2.fromScale(0.09, 0.095)
+brandLine.Size = UDim2.fromScale(0.32, 0.004)
+brandLine.BorderSizePixel = 0
+brandLine.BackgroundColor3 = C_ACCENT
+brandLine.ZIndex = 6
+brandLine.Parent = nav
+local brandLineRound = Instance.new("UICorner")
+brandLineRound.CornerRadius = UDim.new(1, 0)
+brandLineRound.Parent = brandLine
+
 local navList = Instance.new("ScrollingFrame")
-navList.Position = UDim2.fromScale(0.05, 0.13)
-navList.Size = UDim2.fromScale(0.90, 0.83)
+navList.Position = UDim2.fromScale(0.055, 0.19)
+navList.Size = UDim2.fromScale(0.89, 0.73)
 navList.BackgroundTransparency = 1
 navList.BorderSizePixel = 0
 navList.ScrollBarThickness = 2
@@ -1340,7 +1381,7 @@ navList.Parent = nav
 local navLayout = Instance.new("UIListLayout")
 navLayout.FillDirection = Enum.FillDirection.Vertical
 navLayout.SortOrder = Enum.SortOrder.LayoutOrder
-navLayout.Padding = UDim.new(0, 4)
+navLayout.Padding = UDim.new(0, 7)
 navLayout.Parent = navList
 
 local navPad = Instance.new("UIPadding")
@@ -1348,19 +1389,56 @@ navPad.PaddingRight = UDim.new(0, 6)
 navPad.PaddingBottom = UDim.new(0, 6)
 navPad.Parent = navList
 
+local versionTag = Instance.new("TextLabel")
+versionTag.Name = "VersionTag"
+versionTag.Position = UDim2.fromScale(0.10, 0.945)
+versionTag.Size = UDim2.fromScale(0.80, 0.03)
+versionTag.BackgroundTransparency = 1
+versionTag.Text = "●  SYSTEM ONLINE     /     v3.0"
+versionTag.Font = Enum.Font.GothamMedium
+versionTag.TextColor3 = C_ACCENT
+versionTag.TextSize = 10
+versionTag.TextXAlignment = Enum.TextXAlignment.Left
+versionTag.ZIndex = 5
+versionTag.Parent = nav
+
 local content = Instance.new("Frame")
 content.Position = UDim2.fromScale(NAV_W, 0); content.Size = UDim2.fromScale(1-NAV_W, 1)
 content.BackgroundTransparency = 1; content.ZIndex = 2; content.Parent = panel
 
 local contentTitle = Instance.new("TextLabel")
-contentTitle.Position = UDim2.fromScale(0.05, 0.03); contentTitle.Size = UDim2.fromScale(0.9, 0.06)
+contentTitle.Position = UDim2.fromScale(0.055, 0.045); contentTitle.Size = UDim2.fromScale(0.87, 0.057)
 contentTitle.BackgroundTransparency = 1; contentTitle.Font = Enum.Font.GothamBold
-contentTitle.Text = "公告"; contentTitle.TextSize = 18; contentTitle.TextColor3 = C_TXT
+contentTitle.Text = "公告"; contentTitle.TextSize = 21; contentTitle.TextColor3 = C_TXT
 contentTitle.TextTransparency = 0.05; contentTitle.TextXAlignment = Enum.TextXAlignment.Left
 contentTitle.ZIndex = 3; contentTitle.Parent = content
 
+-- Premium content heading with an independently animated accent / context label.
+local headerRule = Instance.new("Frame")
+headerRule.Name = "HeaderRule"
+headerRule.Position = UDim2.fromScale(0.055, 0.125)
+headerRule.Size = UDim2.new(0.89, 0, 0, 1)
+headerRule.BorderSizePixel = 0
+headerRule.BackgroundColor3 = C_ACCENT
+headerRule.BackgroundTransparency = 0.76
+headerRule.ZIndex = 3
+headerRule.Parent = content
+
+local headerDescription = Instance.new("TextLabel")
+headerDescription.Name = "PageDescription"
+headerDescription.Position = UDim2.fromScale(0.055, 0.14)
+headerDescription.Size = UDim2.fromScale(0.89, 0.042)
+headerDescription.BackgroundTransparency = 1
+headerDescription.TextXAlignment = Enum.TextXAlignment.Left
+headerDescription.Font = Enum.Font.GothamMedium
+headerDescription.TextSize = 12
+headerDescription.TextColor3 = C_TXT_DIM
+headerDescription.Text = "PERSONAL CONTROL CENTER   /   READY"
+headerDescription.ZIndex = 3
+headerDescription.Parent = content
+
 local infoScroll = Instance.new("ScrollingFrame")
-infoScroll.Position = UDim2.fromScale(0.04, 0.10); infoScroll.Size = UDim2.fromScale(0.92, 0.85)
+infoScroll.Position = UDim2.fromScale(0.052, 0.205); infoScroll.Size = UDim2.fromScale(0.896, 0.735)
 infoScroll.BackgroundTransparency = 1; infoScroll.BorderSizePixel = 0
 infoScroll.ScrollBarThickness = 3; infoScroll.ScrollBarImageColor3 = Color3.fromRGB(120,120,140)
 infoScroll.CanvasSize = UDim2.new(0, 0, 0, 0); infoScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -1368,7 +1446,7 @@ infoScroll.ZIndex = 3; infoScroll.Parent = content
 local infoLayout = Instance.new("UIListLayout")
 infoLayout.FillDirection = Enum.FillDirection.Vertical
 infoLayout.SortOrder = Enum.SortOrder.LayoutOrder
-infoLayout.Padding = UDim.new(0, 6); infoLayout.Parent = infoScroll
+infoLayout.Padding = UDim.new(0, 9); infoLayout.Parent = infoScroll
 local infoPad = Instance.new("UIPadding")
 infoPad.PaddingRight = UDim.new(0, 6); infoPad.PaddingBottom = UDim.new(0, 10); infoPad.Parent = infoScroll
 
@@ -1377,7 +1455,7 @@ local function makeSection(title, order)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, 0, 0, 22)
     lbl.BackgroundTransparency = 1; lbl.Font = Enum.Font.GothamBold
-    lbl.Text = title; lbl.TextSize = 11
+    lbl.Text = "  ━  " .. title; lbl.TextSize = 11
     lbl.TextColor3 = C_TXT_DIM; lbl.TextTransparency = 0.15
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.LayoutOrder = order; lbl.ZIndex = 6; lbl.Parent = infoScroll
@@ -1387,12 +1465,12 @@ end
 
 local function makeInfoCard(text, order, highlight)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, highlight and 40 or 32)
+    card.Size = UDim2.new(1, 0, 0, highlight and 50 or 39)
     card.BackgroundColor3 = highlight and C_ITEM_ACT or C_CARD
-    card.BackgroundTransparency = highlight and 0.2 or 0.45
+    card.BackgroundTransparency = highlight and 0.04 or 0.13
     card.BorderSizePixel = 0; card.LayoutOrder = order; card.ZIndex = 6; card.Parent = infoScroll
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = card
-    local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = highlight and 0.5 or 0.85; s.Color = C_STROKE; s.Parent = card
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 11); c.Parent = card
+    local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = highlight and 0.44 or 0.8; s.Color = C_STROKE; s.Parent = card
     local lbl = Instance.new("TextLabel")
     lbl.BackgroundTransparency = 1; lbl.Size = UDim2.new(1, -20, 1, 0); lbl.Position = UDim2.new(0, 12, 0, 0)
     lbl.Font = highlight and Enum.Font.GothamBold or Enum.Font.Gotham
@@ -1405,12 +1483,12 @@ end
 
 local function makeToggle(text, order, default, onChanged)
     local row = Instance.new("TextButton")
-    row.Size = UDim2.new(1, 0, 0, 40)
-    row.BackgroundColor3 = C_ITEM; row.BackgroundTransparency = 0.4
+    row.Size = UDim2.new(1, 0, 0, 54)
+    row.BackgroundColor3 = C_ITEM; row.BackgroundTransparency = 0.11
     row.BorderSizePixel = 0; row.AutoButtonColor = false
     row.Text = ""; row.LayoutOrder = order; row.ZIndex = 6; row.Parent = infoScroll
-    local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
-    local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.75; rs.Color = C_STROKE; rs.Parent = row
+    local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 11); rc.Parent = row
+    local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.81; rs.Color = C_STROKE; rs.Parent = row
     local label = Instance.new("TextLabel")
     label.Position = UDim2.new(0, 12, 0, 0); label.Size = UDim2.new(1, -66, 1, 0)
     label.BackgroundTransparency = 1; label.Font = Enum.Font.GothamMedium
@@ -1419,17 +1497,17 @@ local function makeToggle(text, order, default, onChanged)
     label.ZIndex = 7; label.Parent = row
     local switch = Instance.new("Frame")
     switch.AnchorPoint = Vector2.new(1, 0.5); switch.Position = UDim2.new(1, -12, 0.5, 0)
-    switch.Size = UDim2.new(0, 36, 0, 20); switch.BackgroundColor3 = C_SWITCH_OFF
+    switch.Size = UDim2.new(0, 42, 0, 23); switch.BackgroundColor3 = C_SWITCH_OFF
     switch.BorderSizePixel = 0; switch.ZIndex = 7; switch.Parent = row
     local sc = Instance.new("UICorner"); sc.CornerRadius = UDim.new(1, 0); sc.Parent = switch
     local knob = Instance.new("Frame")
     knob.AnchorPoint = Vector2.new(0, 0.5); knob.Position = UDim2.new(0, 2, 0.5, 0)
-    knob.Size = UDim2.new(0, 16, 0, 16); knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    knob.Size = UDim2.new(0, 19, 0, 19); knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
     knob.BorderSizePixel = 0; knob.ZIndex = 8; knob.Parent = switch
     local kc = Instance.new("UICorner"); kc.CornerRadius = UDim.new(1, 0); kc.Parent = knob
     local function setState(on, animate)
         local tInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local targetKnobPos = on and UDim2.new(1, -18, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)
+        local targetKnobPos = on and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)
         local targetColor = on and C_ACCENT or C_SWITCH_OFF
         if animate then
             TweenService:Create(switch, tInfo, { BackgroundColor3 = targetColor }):Play()
@@ -1452,11 +1530,11 @@ end
 
 local function makeSlider(text, order, minV, maxV, default, step, onChanged)
     local wrap = Instance.new("Frame")
-    wrap.Name = "SliderWrap"; wrap.Size = UDim2.new(1, 0, 0, 54)
-    wrap.BackgroundColor3 = C_ITEM; wrap.BackgroundTransparency = 0.4
+    wrap.Name = "SliderWrap"; wrap.Size = UDim2.new(1, 0, 0, 76)
+    wrap.BackgroundColor3 = C_ITEM; wrap.BackgroundTransparency = 0.14
     wrap.BorderSizePixel = 0; wrap.LayoutOrder = order; wrap.ZIndex = 6; wrap.Parent = infoScroll
-    local wc = Instance.new("UICorner"); wc.CornerRadius = UDim.new(0, 8); wc.Parent = wrap
-    local ws = Instance.new("UIStroke"); ws.Thickness = 1; ws.Transparency = 0.75; ws.Color = C_STROKE; ws.Parent = wrap
+    local wc = Instance.new("UICorner"); wc.CornerRadius = UDim.new(0, 11); wc.Parent = wrap
+    local ws = Instance.new("UIStroke"); ws.Thickness = 1; ws.Transparency = 0.81; ws.Color = C_STROKE; ws.Parent = wrap
     local label = Instance.new("TextLabel")
     label.Position = UDim2.new(0, 12, 0, 6); label.Size = UDim2.new(1, -90, 0, 18)
     label.BackgroundTransparency = 1; label.Font = Enum.Font.GothamMedium
@@ -1470,7 +1548,7 @@ local function makeSlider(text, order, minV, maxV, default, step, onChanged)
     valueLbl.TextColor3 = C_ACCENT; valueLbl.TextXAlignment = Enum.TextXAlignment.Right
     valueLbl.ZIndex = 7; valueLbl.Parent = wrap
     local track = Instance.new("Frame")
-    track.Position = UDim2.new(0, 12, 0, 34); track.Size = UDim2.new(1, -24, 0, 6)
+    track.Position = UDim2.new(0, 14, 0, 52); track.Size = UDim2.new(1, -28, 0, 7)
     track.BackgroundColor3 = Color3.fromRGB(50,50,62); track.BackgroundTransparency = 0.2
     track.BorderSizePixel = 0; track.ZIndex = 7; track.Parent = wrap
     local tc = Instance.new("UICorner"); tc.CornerRadius = UDim.new(1, 0); tc.Parent = track
@@ -1537,12 +1615,12 @@ end
 
 local function makeCycle(text, order, options, default, onChanged)
     local row = Instance.new("TextButton")
-    row.Size = UDim2.new(1, 0, 0, 40)
-    row.BackgroundColor3 = C_ITEM; row.BackgroundTransparency = 0.4
+    row.Size = UDim2.new(1, 0, 0, 54)
+    row.BackgroundColor3 = C_ITEM; row.BackgroundTransparency = 0.11
     row.BorderSizePixel = 0; row.AutoButtonColor = false
     row.Text = ""; row.LayoutOrder = order; row.ZIndex = 6; row.Parent = infoScroll
-    local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
-    local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.75; rs.Color = C_STROKE; rs.Parent = row
+    local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 11); rc.Parent = row
+    local rs = Instance.new("UIStroke"); rs.Thickness = 1; rs.Transparency = 0.81; rs.Color = C_STROKE; rs.Parent = row
     local label = Instance.new("TextLabel")
     label.Position = UDim2.new(0, 12, 0, 0); label.Size = UDim2.new(0.5, 0, 1, 0)
     label.BackgroundTransparency = 1; label.Font = Enum.Font.GothamMedium
@@ -1570,6 +1648,32 @@ local function makeCycle(text, order, options, default, onChanged)
     return row
 end
 
+-- Navigation search filters categories without rebuilding their pages.
+local searchBox = Instance.new("TextBox")
+searchBox.Name = "NavigationSearch"
+searchBox.Position = UDim2.fromScale(0.065, 0.116)
+searchBox.Size = UDim2.fromScale(0.87, 0.055)
+searchBox.BackgroundColor3 = C_ITEM
+searchBox.BackgroundTransparency = 0.1
+searchBox.BorderSizePixel = 0
+searchBox.ClearTextOnFocus = false
+searchBox.PlaceholderText = "⌕  搜索功能分类..."
+searchBox.PlaceholderColor3 = C_TXT_DIM
+searchBox.Text = ""
+searchBox.TextColor3 = C_TXT
+searchBox.Font = Enum.Font.GothamMedium
+searchBox.TextSize = 12
+searchBox.TextXAlignment = Enum.TextXAlignment.Left
+searchBox.ZIndex = 8
+searchBox.Parent = nav
+local searchCorner = Instance.new("UICorner")
+searchCorner.CornerRadius = UDim.new(0, 10)
+searchCorner.Parent = searchBox
+local searchPadding = Instance.new("UIPadding")
+searchPadding.PaddingLeft = UDim.new(0, 12)
+searchPadding.PaddingRight = UDim.new(0, 9)
+searchPadding.Parent = searchBox
+
 local activeItem = nil
 local navItems = {}
 local function setActive(item)
@@ -1579,19 +1683,36 @@ local function setActive(item)
         local s = activeItem:FindFirstChildOfClass("UIStroke"); if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.75 }):Play() end
     end
     activeItem = item
+    for _, navButton in ipairs(navItems) do
+        local mark = navButton:FindFirstChild("ActiveMark")
+        if mark then mark.Visible = navButton == item end
+    end
     TweenService:Create(item, TweenInfo.new(0.18), { BackgroundColor3 = C_ITEM_ACT, BackgroundTransparency = 0.15, TextColor3 = C_TXT, TextTransparency = 0 }):Play()
     local s = item:FindFirstChildOfClass("UIStroke"); if s then TweenService:Create(s, TweenInfo.new(0.18), { Transparency = 0.45 }):Play() end
 end
 local function makeNavItem(label, order, onClick)
     local btn = Instance.new("TextButton")
-    btn.Name = label; btn.Size = UDim2.new(1, 0, 0, 32)
+    btn.Name = label; btn.Size = UDim2.new(1, 0, 0, 44)
     btn.BackgroundColor3 = C_ITEM; btn.BackgroundTransparency = 0.4
     btn.BorderSizePixel = 0; btn.AutoButtonColor = false
-    btn.Font = Enum.Font.GothamMedium; btn.Text = "  " .. label
-    btn.TextSize = 14; btn.TextColor3 = C_TXT_DIM; btn.TextTransparency = 0.25
+    btn.Font = Enum.Font.GothamMedium; btn.Text = "    " .. label
+    btn.TextSize = 13; btn.TextColor3 = C_TXT_DIM; btn.TextTransparency = 0.25
     btn.TextXAlignment = Enum.TextXAlignment.Left; btn.LayoutOrder = order
     btn.ZIndex = 6; btn.Parent = navList
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
+    local activeMark = Instance.new("Frame")
+    activeMark.Name = "ActiveMark"
+    activeMark.AnchorPoint = Vector2.new(0, 0.5)
+    activeMark.Position = UDim2.new(0, 1, 0.5, 0)
+    activeMark.Size = UDim2.new(0, 3, 0.48, 0)
+    activeMark.BackgroundColor3 = C_ACCENT
+    activeMark.BorderSizePixel = 0
+    activeMark.Visible = false
+    activeMark.ZIndex = 8
+    activeMark.Parent = btn
+    local amCorner = Instance.new("UICorner")
+    amCorner.CornerRadius = UDim.new(1, 0)
+    amCorner.Parent = activeMark
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 10); c.Parent = btn
     local s = Instance.new("UIStroke"); s.Thickness = 1; s.Transparency = 0.75; s.Color = C_STROKE; s.Parent = btn
     btn.MouseEnter:Connect(function()
         if activeItem == btn then return end
@@ -1616,7 +1737,7 @@ end
 
 -- ============ 各页面 ============
 local function pageAnnounce()
-    contentTitle.Text = "公告"; clearContent()
+    contentTitle.Text = "公告"; headerDescription.Text = "WELCOME  /  PINMS CONTROL CENTER"; clearContent()
     local i = 0
     i=i+1; makeSection("项目信息", i)
     i=i+1; makeInfoCard("Pinms 圣奥里项目「ice」内测", i, true)
@@ -1634,7 +1755,7 @@ local function pageAnnounce()
 end
 
 local function pageMain()
-    contentTitle.Text = "主要功能"; clearContent()
+    contentTitle.Text = "主要功能"; headerDescription.Text = "SYSTEM  /  CORE FEATURES"; clearContent()
     local i = 0
     i=i+1; makeSection("状态", i)
     i=i+1; makeToggle("无限体力", i, State.stamina, function(on) State.stamina = on end)
@@ -1652,7 +1773,7 @@ local function pageMain()
 end
 
 local function pageMoney()
-    contentTitle.Text = "刷钱"; clearContent()
+    contentTitle.Text = "刷钱"; headerDescription.Text = "AUTOMATION  /  TASK SETTINGS"; clearContent()
     local i = 0
     i=i+1; makeSection("任务", i)
     i=i+1; makeToggle("自动接取任务", i, State.autoMission, function(on) State.autoMission = on end)
@@ -1673,7 +1794,7 @@ local function pageMoney()
 end
 
 local function pageCombat()
-    contentTitle.Text = "杀戮光环"; clearContent()
+    contentTitle.Text = "杀戮光环"; headerDescription.Text = "COMBAT  /  RANGE SETTINGS"; clearContent()
     local i = 0
     i=i+1; makeSection("开关", i)
     i=i+1; makeToggle("开启杀戮光环", i, CombatConfig.auraEnabled, function(on) CombatConfig.auraEnabled = on end)
@@ -1688,7 +1809,7 @@ local function pageCombat()
 end
 
 local function pageAim()
-    contentTitle.Text = "自瞄"; clearContent()
+    contentTitle.Text = "自瞄"; headerDescription.Text = "AIM  /  VISUAL SETTINGS"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("开启自瞄", i, AimConfig.enabled, function(on) AimConfig.enabled = on end)
@@ -1715,7 +1836,7 @@ local function pageAim()
 end
 
 local function pageRage()
-    contentTitle.Text = "Ragebot"; clearContent()
+    contentTitle.Text = "Ragebot"; headerDescription.Text = "FEATURES  /  CONFIGURATION"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("开启 Ragebot", i, RageConfig.enabled, function(on) RageConfig.enabled = on end)
@@ -1735,7 +1856,7 @@ local function pageRage()
 end
 
 local function pageHitbox()
-    contentTitle.Text = "范围"; clearContent()
+    contentTitle.Text = "范围"; headerDescription.Text = "HITBOX  /  DISPLAY SETTINGS"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("开启范围", i, HitboxConfig.active, function(on)
@@ -1760,7 +1881,7 @@ local function pageHitbox()
 end
 
 local function pagePlayer()
-    contentTitle.Text = "玩家"; clearContent()
+    contentTitle.Text = "玩家"; headerDescription.Text = "MOVEMENT  /  PLAYER SETTINGS"; clearContent()
     local i = 0
     i=i+1; makeSection("移动速度", i)
     i=i+1; makeToggle("开启自定义速度", i, PlayerConfig.walkEnabled, function(on) PlayerConfig.walkEnabled = on; startWalkLoop() end)
@@ -1784,7 +1905,7 @@ local function pagePlayer()
 end
 
 local function pagePolice()
-    contentTitle.Text = "警察功能"; clearContent()
+    contentTitle.Text = "警察功能"; headerDescription.Text = "FEATURES  /  CONFIGURATION"; clearContent()
     local i = 0
     i=i+1; makeSection("开关", i)
     i=i+1; makeToggle("自动铐", i, State.autoCuff, function(on) State.autoCuff = on; if on then startAutoCuff() end end)
@@ -1796,7 +1917,7 @@ local function pagePolice()
 end
 
 local function pageESP()
-    contentTitle.Text = "ESP"; clearContent()
+    contentTitle.Text = "ESP"; headerDescription.Text = "ESP  /  OVERLAY SETTINGS"; clearContent()
     local i = 0
     i=i+1; makeSection("总控", i)
     i=i+1; makeToggle("透视总开关", i, ESP.enabled, function(on)
@@ -1839,6 +1960,95 @@ makeNavItem("范围", 7, pageHitbox)
 makeNavItem("玩家", 8, pagePlayer)
 makeNavItem("警察", 9, pagePolice)
 makeNavItem("ESP", 10, pageESP)
+-- Responsive category rail: full-height left navigation on desktop,
+-- touch-friendly horizontal category strip on small displays.
+local function applyResponsiveLayout()
+    if not panel or not panel.Parent then return end
+    local compact = panel.AbsoluteSize.X < 660
+    mobileLayout = compact
+    if compact then
+        nav.Position = UDim2.new(0, 0, 0, 0)
+        nav.Size = UDim2.new(1, 0, 0, 105)
+        nav.BackgroundTransparency = 0.04
+        navCorner.CornerRadius = UDim.new(0, 16)
+        navDivider.Visible = false
+        brand.Position = UDim2.new(0, 15, 0, 9)
+        brand.Size = UDim2.new(0.52, 0, 0, 30)
+        brand.TextScaled = false
+        brand.TextSize = 20
+        brandLine.Visible = false
+        navTitle.Visible = false
+        versionTag.Visible = false
+        searchBox.Position = UDim2.new(0.52, 0, 0, 10)
+        searchBox.Size = UDim2.new(0.34, 0, 0, 30)
+        searchBox.TextSize = 11
+        navList.Position = UDim2.new(0, 12, 0, 52)
+        navList.Size = UDim2.new(1, -24, 0, 46)
+        navList.ScrollingDirection = Enum.ScrollingDirection.X
+        navList.AutomaticCanvasSize = Enum.AutomaticSize.X
+        navLayout.FillDirection = Enum.FillDirection.Horizontal
+        navLayout.Padding = UDim.new(0, 7)
+        for _, b in ipairs(navItems) do
+            b.Size = UDim2.fromOffset(86, 38)
+            b.TextXAlignment = Enum.TextXAlignment.Center
+            b.TextSize = 12
+            b.Text = b.Name
+        end
+        content.Position = UDim2.new(0, 0, 0, 107)
+        content.Size = UDim2.new(1, 0, 1, -107)
+        contentTitle.TextSize = 19
+        infoScroll.Position = UDim2.new(0.045, 0, 0.20, 0)
+        infoScroll.Size = UDim2.new(0.91, 0, 0.73, 0)
+    else
+        nav.Position = UDim2.fromScale(0, 0)
+        nav.Size = UDim2.fromScale(NAV_W, 1)
+        navCorner.CornerRadius = UDim.new(0, 22)
+        navDivider.Visible = true
+        brand.Position = UDim2.fromScale(0.095, 0.027)
+        brand.Size = UDim2.fromScale(0.78, 0.065)
+        brand.TextScaled = true
+        brandLine.Visible = true
+        navTitle.Visible = true
+        versionTag.Visible = true
+        searchBox.Position = UDim2.fromScale(0.065, 0.116)
+        searchBox.Size = UDim2.fromScale(0.87, 0.055)
+        searchBox.TextSize = 12
+        navList.Position = UDim2.fromScale(0.055, 0.19)
+        navList.Size = UDim2.fromScale(0.89, 0.73)
+        navList.ScrollingDirection = Enum.ScrollingDirection.Y
+        navList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        navLayout.FillDirection = Enum.FillDirection.Vertical
+        navLayout.Padding = UDim.new(0, 7)
+        for _, b in ipairs(navItems) do
+            b.Size = UDim2.new(1, 0, 0, 44)
+            b.Text = "    " .. b.Name
+            b.TextXAlignment = Enum.TextXAlignment.Left
+            b.TextSize = 13
+        end
+        content.Position = UDim2.fromScale(NAV_W, 0)
+        content.Size = UDim2.fromScale(1-NAV_W, 1)
+        contentTitle.TextSize = 21
+        infoScroll.Position = UDim2.fromScale(0.052, 0.205)
+        infoScroll.Size = UDim2.fromScale(0.896, 0.735)
+    end
+end
+local responsiveQueued = false
+panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    if responsiveQueued then return end
+    responsiveQueued = true
+    task.defer(function()
+        responsiveQueued = false
+        applyResponsiveLayout()
+    end)
+end)
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local query = string.lower(searchBox.Text)
+    for _, b in ipairs(navItems) do
+        b.Visible = (query == "" or string.find(string.lower(b.Name), query, 1, true) ~= nil)
+    end
+end)
+applyResponsiveLayout()
+
 setActive(navList:FindFirstChild("公告"))
 pageAnnounce()
 
@@ -1973,7 +2183,7 @@ _G.RainbowBannerConn = RunService.RenderStepped:Connect(function()
     local val = 0.88 + ((math.sin(now * 2.2) + 1) / 2) * 0.12
     local seq = buildGradient(hueShift, 0.9, val)
     panelGrad.Color = seq
-    panelGrad.Rotation = 8 + math.sin(now * 0.6) * 20
+    panelGrad.Rotation = 25 + math.sin(now * 0.6) * 20
     ESP_RainbowColor = Color3.fromHSV(hueShift, 0.9, val)
 end)
 
