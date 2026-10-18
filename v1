@@ -1,3 +1,4 @@
+-- Pinms Hub | Optimized single-file Luau | 2026-10-18
 --[[
     RainbowBannerUI · PYHUB 全功能整合版 + Pinms 水印 + ESP 2D 彩虹边框
 --]]
@@ -14,8 +15,25 @@ local Workspace         = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local pg = LocalPlayer:WaitForChild("PlayerGui")
 
+-- 重新运行前关闭上一版本的循环、连接和视觉对象
+if type(_G.PinmsShutdown) == "function" then
+    pcall(_G.PinmsShutdown)
+    _G.PinmsShutdown = nil
+end
 if pg:FindFirstChild("RainbowBannerUI") then pg.RainbowBannerUI:Destroy() end
 if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
+
+-- 生命周期管理：所有常驻任务都以 alive 为停止条件
+local Runtime = { alive = true, connections = {}, drawings = {} }
+local function connectTracked(signal, callback)
+    local conn = signal:Connect(callback)
+    table.insert(Runtime.connections, conn)
+    return conn
+end
+local function registerDrawing(object)
+    table.insert(Runtime.drawings, object)
+    return object
+end
 
 local RemoteFolder = ReplicatedStorage:WaitForChild("Remote", 15)
 local PlayerEvent  = RemoteFolder and RemoteFolder:WaitForChild("PlayerEvent", 5)
@@ -99,7 +117,7 @@ local State = {
     autoHack=false, golf=false, autoCuff=false,
 }
 
-RunService.Heartbeat:Connect(function()
+connectTracked(RunService.Heartbeat, function()
     if CoreModule then
         if State.stamina then pcall(function() CoreModule.stamina = 100 end) end
         if State.food then pcall(function() CoreModule.food = 100 end) end
@@ -202,16 +220,24 @@ local function setAntiPrisonPull(enabled)
 end
 
 local ghostRender
+local ghostOriginal = setmetatable({}, {__mode = "k"})
 local function setGhostVisuals(character, enabled)
     if not character then return end
     pcall(function()
         character:SetAttribute("Invisible", enabled or nil)
         for _, obj in ipairs(character:GetDescendants()) do
             if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
-                obj.LocalTransparencyModifier = enabled and 0.55 or 0
-                obj.Material = enabled and Enum.Material.ForceField or Enum.Material.SmoothPlastic
+                if enabled and not ghostOriginal[obj] then
+                    ghostOriginal[obj] = {transparency = obj.LocalTransparencyModifier, material = obj.Material}
+                end
+                local old = ghostOriginal[obj]
+                obj.LocalTransparencyModifier = enabled and 0.55 or (old and old.transparency or 0)
+                obj.Material = enabled and Enum.Material.ForceField or (old and old.material or obj.Material)
+                if not enabled then ghostOriginal[obj] = nil end
             elseif obj:IsA("Decal") and obj.Name == "face" then
-                obj.Transparency = enabled and 0.55 or 0
+                if enabled and not ghostOriginal[obj] then ghostOriginal[obj] = {transparency = obj.Transparency} end
+                obj.Transparency = enabled and 0.55 or (ghostOriginal[obj] and ghostOriginal[obj].transparency or obj.Transparency)
+                if not enabled then ghostOriginal[obj] = nil end
             end
         end
     end)
@@ -283,7 +309,7 @@ local function teleportTo(pos)
     end)
 end
 task.spawn(function()
-    while true do
+    while Runtime.alive do
         if State.autoMoney then
             local _, _, root = GetCharacter(LocalPlayer)
             if root then
@@ -334,7 +360,7 @@ local function getBestMission()
     return bestId
 end
 task.spawn(function()
-    while true do
+    while Runtime.alive do
         if State.autoMission and PlayerFunc and not hasActiveMission() then
             local id = getBestMission()
             if id then pcall(function() PlayerFunc:InvokeServer("talkToMission", tostring(id) .. "join") end) end
@@ -360,7 +386,7 @@ local function getFarmerDropOff()
     end
 end
 task.spawn(function()
-    while true do
+    while Runtime.alive do
         if State.farmer then
             local drop = getFarmerDropOff()
             if drop then teleportTo(drop); task.wait(0.4) end
@@ -385,7 +411,7 @@ end)
 
 task.spawn(function()
     local lastTargetPos
-    while true do
+    while Runtime.alive do
         if State.taxi then
             local clientContent = Workspace:FindFirstChild("Gameplay")
             clientContent = clientContent and clientContent:FindFirstChild("Entities")
@@ -427,7 +453,7 @@ local function getBusArea()
     return child and child:FindFirstChild("Area")
 end
 task.spawn(function()
-    while true do
+    while Runtime.alive do
         if State.bus then
             local area = getBusArea()
             local _, hum, root = GetCharacter(LocalPlayer)
@@ -481,7 +507,7 @@ task.spawn(function()
         end
         return obj
     end
-    while true do
+    while Runtime.alive do
         if State.golf and PlayerFunc then
             pcall(function()
                 PlayerFunc:InvokeServer("miniGolf", "createLobby")
@@ -517,7 +543,7 @@ local CombatConfig = {
     auraOnlyPolice=false, auraOnlyCivilian=false, auraCombatCheck=false,
 }
 local auraLast = 0
-RunService.Heartbeat:Connect(function()
+connectTracked(RunService.Heartbeat, function()
     if not CombatConfig.auraEnabled or not PlayerEvent then return end
     local now = tick()
     if now - auraLast < CombatConfig.auraInterval then return end
@@ -611,12 +637,12 @@ local function getBestAimTarget()
     end
     return best
 end
-local AimFOV = Drawing.new("Circle")
+local AimFOV = registerDrawing(Drawing.new("Circle"))
 AimFOV.Filled = false; AimFOV.NumSides = 64
-local AimTracer = Drawing.new("Line")
-local AimCrosshair = { Top=Drawing.new("Line"), Bottom=Drawing.new("Line"), Left=Drawing.new("Line"), Right=Drawing.new("Line"), Center=Drawing.new("Line") }
+local AimTracer = registerDrawing(Drawing.new("Line"))
+local AimCrosshair = { Top=registerDrawing(Drawing.new("Line")), Bottom=registerDrawing(Drawing.new("Line")), Left=registerDrawing(Drawing.new("Line")), Right=registerDrawing(Drawing.new("Line")), Center=registerDrawing(Drawing.new("Line")) }
 for _, line in pairs(AimCrosshair) do line.Thickness = 2; line.Visible = false end
-RunService.RenderStepped:Connect(function(dt)
+connectTracked(RunService.RenderStepped, function(dt)
     local camera = Workspace.CurrentCamera
     if not camera then return end
     local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
@@ -671,7 +697,7 @@ local function createBeam(startPos, endPos)
     task.delay(0.8, function() pcall(function() p1:Destroy(); p2:Destroy() end) end)
 end
 task.spawn(function()
-    while true do
+    while Runtime.alive do
         if RageConfig.enabled and PlayerEvent then
             local _, _, myRoot = GetCharacter(LocalPlayer)
             if myRoot then
@@ -717,6 +743,7 @@ local function resetHitbox(char)
     if orig then
         root.Size = orig.Size; root.Transparency = orig.Transparency
         root.Material = orig.Material; root.CanCollide = orig.CanCollide; root.Color = orig.Color
+        hitboxOriginal[root] = nil
     end
     local h = root:FindFirstChild("PY_HitboxHighlight"); if h then h:Destroy() end
     local l = root:FindFirstChild("PY_HitboxLight"); if l then l:Destroy() end
@@ -752,7 +779,17 @@ local function applyHitbox(char)
         local light = root:FindFirstChild("PY_HitboxLight"); if light then light:Destroy() end
     end
 end
-RunService.Heartbeat:Connect(function()
+local hitboxElapsed = 0
+connectTracked(RunService.Heartbeat, function(dt)
+    hitboxElapsed += dt
+    if hitboxElapsed < 0.10 then return end
+    hitboxElapsed = 0
+    if not HitboxConfig.active then
+        for root in pairs(hitboxOriginal) do
+            if root and root.Parent then resetHitbox(root.Parent) end
+        end
+        return
+    end
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             if HitboxConfig.teamCheck and LocalPlayer.Team and player.Team == LocalPlayer.Team then
@@ -887,12 +924,12 @@ local function createESP(player)
     highlight.OutlineTransparency = 0
     highlight.Parent = uiParent
 
-    local tracer = Drawing.new("Line")
+    local tracer = registerDrawing(Drawing.new("Line"))
     tracer.Thickness = 1
     tracer.Transparency = 0.5
     tracer.Visible = false
 
-    local update = RunService.Heartbeat:Connect(function()
+    local update = connectTracked(RunService.Heartbeat, function()
         if not espAllowed(player) or not player.Character or not root.Parent then
             tracer.Visible = false
             if bill.Parent then bill.Enabled = false end
@@ -979,18 +1016,31 @@ local function refreshESP()
         end
     end
 end
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function() task.wait(0.5); if ESP.enabled then createESP(p) end end)
+local function watchPlayerCharacter(p)
+    if p == LocalPlayer then return end
+    connectTracked(p.CharacterAdded, function()
+        task.wait(0.5)
+        if Runtime.alive and ESP.enabled then createESP(p) end
+    end)
+end
+connectTracked(Players.PlayerAdded, watchPlayerCharacter)
+for _, existingPlayer in ipairs(Players:GetPlayers()) do
+    watchPlayerCharacter(existingPlayer)
+end
+connectTracked(Players.PlayerRemoving, removeESP)
+task.spawn(function()
+    while Runtime.alive do
+        if ESP.enabled then refreshESP() end
+        task.wait(0.35)
+    end
 end)
-Players.PlayerRemoving:Connect(removeESP)
-RunService.Heartbeat:Connect(function() if ESP.enabled then refreshESP() end end)
 
 local PoliceConfig = { range=200, delay=0.5, combatCheck=false, teleport=false }
 local autoCuffThread
 local function startAutoCuff()
     if autoCuffThread then return end
     autoCuffThread = task.spawn(function()
-        while State.autoCuff do
+        while Runtime.alive and State.autoCuff do
             local _, _, myRoot = GetCharacter(LocalPlayer)
             if myRoot and PlayerFunc then
                 for _, player in ipairs(Players:GetPlayers()) do
@@ -1037,7 +1087,7 @@ local function stopWalkLoop() if PlayerRuntime.walkConn then PlayerRuntime.walkC
 local function startWalkLoop()
     stopWalkLoop()
     if not PlayerConfig.walkEnabled then return end
-    PlayerRuntime.walkConn = RunService.Heartbeat:Connect(function()
+    PlayerRuntime.walkConn = connectTracked(RunService.Heartbeat, function()
         local _, hum = GetCharacter(LocalPlayer)
         if hum and PlayerConfig.walkEnabled then hum.WalkSpeed = PlayerConfig.walkSpeed end
     end)
@@ -1074,7 +1124,7 @@ local function startWarpFly()
     if not root or not hum then return end
     PlayerConfig.flyEnabled = true
     hum.AutoRotate = false
-    PlayerRuntime.flyConn = RunService.RenderStepped:Connect(function(dt)
+    PlayerRuntime.flyConn = connectTracked(RunService.RenderStepped, function(dt)
         if not PlayerConfig.flyEnabled or PlayerConfig.flyMode ~= "传送" then return end
         local _, currentHum, currentRoot = GetCharacter(LocalPlayer)
         local cam = Workspace.CurrentCamera
@@ -1147,7 +1197,7 @@ local function startNoclip()
         end
     end)
 end
-LocalPlayer.CharacterAdded:Connect(function()
+connectTracked(LocalPlayer.CharacterAdded, function()
     task.wait(0.5)
     PlayerRuntime.collisionCache = {}
     if PlayerConfig.walkEnabled then startWalkLoop() end
@@ -1191,7 +1241,7 @@ local function startVehicleFly()
     VehicleFly.bg = Instance.new("BodyGyro")
     VehicleFly.bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
     VehicleFly.bg.Parent = root
-    VehicleFly.conn = RunService.Heartbeat:Connect(function()
+    VehicleFly.conn = connectTracked(RunService.Heartbeat, function()
         local cam = Workspace.CurrentCamera
         if VehicleFly.active and cam and VehicleFly.bv and VehicleFly.bg then
             VehicleFly.bg.CFrame = cam.CFrame
@@ -1232,10 +1282,18 @@ gui.DisplayOrder = 999; gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = pg
 
 local EXPAND_POS  = UDim2.fromScale(0.5, 0.5)
-local EXPAND_SIZE = UDim2.fromScale(0.58, 0.72)
+local cameraForUI = Workspace.CurrentCamera
+local initialVP = cameraForUI and cameraForUI.ViewportSize or Vector2.new(1280, 720)
+local function bestWindowSize(viewport)
+    local isCompact = viewport.X < 720
+    local w = math.min(isCompact and 620 or 940, math.max(260, viewport.X - (isCompact and 16 or 70)))
+    local h = math.min(750, math.max(210, viewport.Y - (isCompact and 28 or 80)))
+    return UDim2.fromOffset(w, h)
+end
+local EXPAND_SIZE = bestWindowSize(initialVP)
 local ISLAND_POS  = UDim2.fromScale(0.5, 0.07)
 local ISLAND_SIZE = UDim2.new(0, 130, 0, 32)
-local MIN_SIZE = Vector2.new(340, 240)
+local MIN_SIZE = Vector2.new(260, 210)
 local MAX_SIZE = Vector2.new(1000, 820)
 local NAV_W = 0.24
 
@@ -1883,29 +1941,34 @@ dragBar.InputBegan:Connect(function(input)
         dragBar.BackgroundTransparency = 0.1
     end
 end)
-UserInput.InputChanged:Connect(function(input)
+connectTracked(UserInput.InputChanged, function(input)
     if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
     local mouse = UserInput:GetMouseLocation()
     if resizing then
         local delta = mouse - resizeStartMouse
-        local newX = math.clamp(resizeStartSize.X + delta.X, MIN_SIZE.X, MAX_SIZE.X)
-        local newY = math.clamp(resizeStartSize.Y + delta.Y, MIN_SIZE.Y, MAX_SIZE.Y)
-        panel.Size = UDim2.fromOffset(newX, newY)
+        local vp = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or initialVP
+        local newX = math.clamp(resizeStartSize.X + delta.X, math.min(MIN_SIZE.X, vp.X - 12), math.min(MAX_SIZE.X, vp.X - 12))
+        local newY = math.clamp(resizeStartSize.Y + delta.Y, math.min(MIN_SIZE.Y, vp.Y - 12), math.min(MAX_SIZE.Y, vp.Y - 12))
+        EXPAND_SIZE = UDim2.fromOffset(newX, newY)
+        panel.Size = EXPAND_SIZE
     elseif dragging then
         local delta = mouse - dragStartMouse
         local vp = workspace.CurrentCamera.ViewportSize
         panel.Position = UDim2.new(dragStartPos.X.Scale + delta.X/vp.X, dragStartPos.X.Offset, dragStartPos.Y.Scale + delta.Y/vp.Y, dragStartPos.Y.Offset)
     end
 end)
-UserInput.InputEnded:Connect(function(input)
+connectTracked(UserInput.InputEnded, function(input)
     if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
     if resizing then resizing = false; activeDrag = nil; resizeDot.BackgroundTransparency = 0.35 end
     if dragging then dragging = false; activeDrag = nil; dragBar.BackgroundTransparency = 0.4 end
 end)
 
 local t0 = os.clock()
+local lastPanelGradient = 0
 _G.RainbowBannerConn = RunService.RenderStepped:Connect(function()
     local now = os.clock() - t0
+    if now - lastPanelGradient < 1/30 then return end
+    lastPanelGradient = now
     local hueShift = (now * 0.35) % 1
     local val = 0.88 + ((math.sin(now * 2.2) + 1) / 2) * 0.12
     local seq = buildGradient(hueShift, 0.9, val)
@@ -1917,6 +1980,43 @@ end)
 gui.Destroying:Connect(function()
     if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
 end)
+
+-- ============ 统一卸载 / 重复注入清理 ============
+local shuttingDown = false
+local function shutdownPinms()
+    if shuttingDown then return end
+    shuttingDown = true
+    Runtime.alive = false
+    for key in pairs(State) do State[key] = false end
+    CombatConfig.auraEnabled = false
+    AimConfig.enabled = false
+    RageConfig.enabled = false
+    HitboxConfig.active = false
+    ESP.enabled = false
+    for player in pairs(ESP.trackers) do removeESP(player) end
+    for root in pairs(hitboxOriginal) do
+        if root and root.Parent then pcall(resetHitbox, root.Parent) end
+    end
+    pcall(stopPlayerFly)
+    pcall(stopNoclip)
+    pcall(stopWalkLoop)
+    pcall(stopJumpHandler)
+    pcall(stopVehicleFly)
+    pcall(function() if ghostRender then ghostRender:Disconnect(); ghostRender = nil end end)
+    pcall(function() setGhostVisuals(LocalPlayer.Character, false) end)
+    pcall(function() setAntiPrisonPull(false) end)
+    pcall(function() setAutoHack(false) end)
+    for _, conn in ipairs(Runtime.connections) do pcall(function() conn:Disconnect() end) end
+    for _, drawing in ipairs(Runtime.drawings) do pcall(function() drawing:Remove() end) end
+    if _G.RainbowBannerConn then _G.RainbowBannerConn:Disconnect(); _G.RainbowBannerConn = nil end
+    if _G.CodexWMConn then _G.CodexWMConn:Disconnect(); _G.CodexWMConn = nil end
+    local oldWM = pg:FindFirstChild("BypassWatermark")
+    if oldWM then oldWM:Destroy() end
+    if gui.Parent then gui:Destroy() end
+    if _G.PinmsShutdown == shutdownPinms then _G.PinmsShutdown = nil end
+end
+_G.PinmsShutdown = shutdownPinms
+gui.Destroying:Connect(shutdownPinms)
 
 -- ==========================================================
 --                    ★ 水印（Pinms 平铺）
@@ -1987,8 +2087,11 @@ do
     end
 
     local wmT0 = os.clock()
+    local lastWmGradient = 0
     _G.CodexWMConn = RunService.RenderStepped:Connect(function()
         local now = os.clock() - wmT0
+        if now - lastWmGradient < 1/20 then return end
+        lastWmGradient = now
         local hueShift = (now * 0.35) % 1
         local val = 0.88 + ((math.sin(now * 2.2) + 1) / 2) * 0.12
         local seq = buildWatermarkGradient(hueShift, 0.9, val)
@@ -2008,4 +2111,4 @@ do
     print("水印：" .. (#wmMarks) .. " 个 · 左右对称平铺")
 end
 
-print("RainbowBannerUI · 全功能 + ESP 2D 彩虹边框 + 水印 已加载")
+print("Pinms Hub · 优化版 / 生命周期管理 / 自适应窗口 / 彩虹ESP 已加载")
